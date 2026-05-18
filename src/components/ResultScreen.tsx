@@ -31,50 +31,50 @@ export default function ResultScreen() {
   };
 
   return (
-    <div className="flex-1 overflow-y-auto bg-slate-50 p-8 md:p-12">
+    <div className="flex-1 overflow-y-auto bg-slate-50 dark:bg-slate-950 p-4 md:p-8 lg:p-12 transition-colors duration-300">
       <div className="max-w-4xl mx-auto space-y-8">
         
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100 text-center"
+          className="bg-white dark:bg-slate-800 rounded-3xl p-6 md:p-8 shadow-sm border border-slate-100 dark:border-slate-700 text-center transition-colors duration-300"
         >
-          <div className="inline-flex items-center justify-center p-4 bg-indigo-50 text-indigo-600 rounded-full mb-6">
+          <div className="inline-flex items-center justify-center p-4 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 rounded-full mb-6">
             <Target className="w-12 h-12" />
           </div>
-          <h1 className="text-3xl font-extrabold text-slate-900 mb-2">Hoàn thành bài kiểm tra!</h1>
-          <p className="text-slate-500 mb-8">Dưới đây là kết quả chi tiết của bạn.</p>
+          <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 dark:text-slate-100 mb-2">Hoàn thành bài kiểm tra!</h1>
+          <p className="text-sm md:text-base text-slate-500 dark:text-slate-400 mb-8">Dưới đây là kết quả chi tiết của bạn.</p>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="bg-slate-50 p-6 rounded-2xl">
-              <div className="text-sm font-medium text-slate-500 mb-1">Điểm số</div>
-              <div className="text-3xl font-bold text-slate-900">{percentage}%</div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+            <div className="bg-slate-50 dark:bg-slate-900/50 p-4 md:p-6 rounded-2xl">
+              <div className="text-xs md:text-sm font-medium text-slate-500 dark:text-slate-400 mb-1">Điểm số</div>
+              <div className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-slate-100">{percentage}%</div>
             </div>
-            <div className="bg-slate-50 p-6 rounded-2xl">
-              <div className="text-sm font-medium text-slate-500 mb-1">Chính xác</div>
-              <div className="text-3xl font-bold text-green-600">{correctCount}<span className="text-lg text-slate-400">/{total}</span></div>
+            <div className="bg-slate-50 dark:bg-slate-900/50 p-4 md:p-6 rounded-2xl">
+              <div className="text-xs md:text-sm font-medium text-slate-500 dark:text-slate-400 mb-1">Chính xác</div>
+              <div className="text-2xl md:text-3xl font-bold text-green-600 dark:text-green-400">{correctCount}<span className="text-base md:text-lg text-slate-400 dark:text-slate-500">/{total}</span></div>
             </div>
-            <div className="bg-slate-50 p-6 rounded-2xl">
-              <div className="text-sm font-medium text-slate-500 mb-1">Thời gian</div>
-              <div className="text-3xl font-bold text-slate-900">{formatTime(totalSeconds)}</div>
+            <div className="bg-slate-50 dark:bg-slate-900/50 p-4 md:p-6 rounded-2xl">
+              <div className="text-xs md:text-sm font-medium text-slate-500 dark:text-slate-400 mb-1">Thời gian</div>
+              <div className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-slate-100">{formatTime(totalSeconds)}</div>
             </div>
-            <div className="bg-slate-50 p-6 rounded-2xl">
-              <div className="text-sm font-medium text-slate-500 mb-1">Trung bình/câu</div>
-              <div className="text-3xl font-bold text-slate-900">{avgTime}s</div>
+            <div className="bg-slate-50 dark:bg-slate-900/50 p-4 md:p-6 rounded-2xl">
+              <div className="text-xs md:text-sm font-medium text-slate-500 dark:text-slate-400 mb-1">Trung bình/câu</div>
+              <div className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-slate-100">{avgTime}s</div>
             </div>
           </div>
 
-          <div className="flex justify-center gap-4 mt-8">
+          <div className="flex flex-col md:flex-row justify-center gap-3 md:gap-4 mt-8">
             <button
               onClick={retryQuiz}
-              className="flex items-center gap-2 bg-indigo-600 text-white px-8 py-4 rounded-xl font-bold transition-all hover:bg-indigo-700 shadow-md hover:shadow-lg active:scale-95"
+              className="flex items-center justify-center gap-2 bg-indigo-600 dark:bg-indigo-500 text-white px-6 md:px-8 py-3 md:py-4 rounded-xl font-bold transition-all hover:bg-indigo-700 dark:hover:bg-indigo-600 shadow-md hover:shadow-lg active:scale-95 text-sm md:text-base"
             >
               <RotateCcw className="w-5 h-5" />
               Làm lại bài
             </button>
             <button
               onClick={resetApp}
-              className="flex items-center gap-2 bg-white border-2 border-slate-200 text-slate-700 px-8 py-4 rounded-xl font-bold transition-all hover:bg-slate-50 hover:border-slate-300 active:scale-95"
+              className="flex items-center justify-center gap-2 bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 px-6 md:px-8 py-3 md:py-4 rounded-xl font-bold transition-all hover:bg-slate-50 dark:hover:bg-slate-700 hover:border-slate-300 dark:hover:border-slate-600 active:scale-95 text-sm md:text-base"
             >
               Quay lại cài đặt
             </button>
@@ -86,11 +86,11 @@ export default function ResultScreen() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
-            className="space-y-6"
+            className="space-y-4 md:space-y-6"
           >
-            <div className="flex items-center gap-3 mb-6 px-2">
-              <AlertTriangle className="w-6 h-6 text-red-500" />
-              <h2 className="text-xl font-bold text-slate-800">Các câu trả lời sai cần xem lại</h2>
+            <div className="flex items-center gap-2 md:gap-3 mb-4 md:mb-6 px-2">
+              <AlertTriangle className="w-5 h-5 md:w-6 md:h-6 text-red-500" />
+              <h2 className="text-lg md:text-xl font-bold text-slate-800 dark:text-slate-100">Các câu trả lời sai cần xem lại</h2>
             </div>
 
             <div className="space-y-4">
@@ -99,37 +99,37 @@ export default function ResultScreen() {
                 const correctOption = q.options.find(o => o.id === q.correctOptionId);
 
                 return (
-                  <div key={q.id} className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
-                    <div className="font-medium text-slate-900 mb-4 whitespace-pre-wrap leading-relaxed">
-                      <span className="text-slate-400 mr-2">#{idx + 1}</span>
+                  <div key={q.id} className="bg-white dark:bg-slate-800 rounded-2xl p-5 md:p-6 shadow-sm border border-slate-100 dark:border-slate-700 transition-colors duration-300">
+                    <div className="font-medium text-slate-900 dark:text-slate-100 mb-4 whitespace-pre-wrap leading-relaxed text-sm md:text-base">
+                      <span className="text-slate-400 dark:text-slate-500 mr-2">#{idx + 1}</span>
                       {q.text}
                     </div>
                     
                     <div className="space-y-3">
                       {selectedOption ? (
-                        <div className="flex items-start gap-3 p-3 bg-red-50 text-red-800 rounded-xl border border-red-100">
+                        <div className="flex items-start gap-3 p-3 bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-400 rounded-xl border border-red-100 dark:border-red-900/50">
                           <XCircle className="w-5 h-5 shrink-0 mt-0.5" />
                           <div>
-                            <div className="text-xs font-bold uppercase tracking-wider text-red-500 mb-1">Bạn chọn</div>
-                            <div>{selectedOption.text}</div>
+                            <div className="text-[10px] md:text-xs font-bold uppercase tracking-wider text-red-500 mb-1">Bạn chọn</div>
+                            <div className="text-sm md:text-base">{selectedOption.text}</div>
                           </div>
                         </div>
                       ) : (
-                        <div className="flex items-start gap-3 p-3 bg-slate-100 text-slate-700 rounded-xl border border-slate-200">
-                          <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
+                        <div className="flex items-start gap-3 p-3 bg-slate-100 dark:bg-slate-700/50 text-slate-700 dark:text-slate-300 rounded-xl border border-slate-200 dark:border-slate-600/50">
+                          <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5 text-slate-500 dark:text-slate-400" />
                           <div>
-                            <div className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Trạng thái</div>
-                            <div>Chưa trả lời</div>
+                            <div className="text-[10px] md:text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Trạng thái</div>
+                            <div className="text-sm md:text-base">Chưa trả lời</div>
                           </div>
                         </div>
                       )}
                       
                       {correctOption && (
-                        <div className="flex items-start gap-3 p-3 bg-green-50 text-green-800 rounded-xl border border-green-100">
+                        <div className="flex items-start gap-3 p-3 bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-400 rounded-xl border border-green-100 dark:border-green-900/50">
                           <CheckCircle2 className="w-5 h-5 shrink-0 mt-0.5" />
                           <div>
-                            <div className="text-xs font-bold uppercase tracking-wider text-green-600 mb-1">Đáp án đúng</div>
-                            <div>{correctOption.text}</div>
+                            <div className="text-[10px] md:text-xs font-bold uppercase tracking-wider text-green-600 dark:text-green-500 mb-1">Đáp án đúng</div>
+                            <div className="text-sm md:text-base">{correctOption.text}</div>
                           </div>
                         </div>
                       )}

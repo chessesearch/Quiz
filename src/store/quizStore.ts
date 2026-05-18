@@ -23,6 +23,9 @@ export interface QuizStore {
   customQuestionCount: number;
   setQuestionCountMode: (val: 'ALL' | 'CUSTOM') => void;
   setCustomQuestionCount: (val: number) => void;
+  
+  theme: 'light' | 'dark';
+  setTheme: (val: 'light' | 'dark') => void;
 
   // Sources
   sources: SourceFile[];
@@ -69,6 +72,9 @@ export const useQuizStore = create<QuizStore>((set, get) => ({
   customQuestionCount: 10,
   setQuestionCountMode: (val) => set({ questionCountMode: val }),
   setCustomQuestionCount: (val) => set({ customQuestionCount: val }),
+  
+  theme: 'light',
+  setTheme: (val) => set({ theme: val }),
 
   sources: [],
   addSource: (source) => set((state) => ({ sources: [...state.sources, source] })),
