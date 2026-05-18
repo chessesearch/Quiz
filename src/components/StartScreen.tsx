@@ -1,16 +1,23 @@
 "use client";
 
 import { useQuizStore } from "@/store/quizStore";
-import { Play } from "lucide-react";
+import { Play, Settings } from "lucide-react";
 import { motion } from "framer-motion";
 
 export default function StartScreen() {
-  const { sources, startQuiz } = useQuizStore();
+  const { sources, startQuiz, setSettingsOpen } = useQuizStore();
   const activeSources = sources.filter(s => s.active && s.isValid);
   const totalQuestions = activeSources.reduce((acc, curr) => acc + curr.questionsCount, 0);
 
   return (
     <div className="flex-1 flex flex-col items-center justify-center p-4 md:p-8 relative">
+      <button 
+        onClick={() => setSettingsOpen(true)}
+        className="absolute top-6 right-6 md:top-8 md:right-8 p-3 rounded-full bg-white dark:bg-slate-800 shadow-sm border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all hover:shadow-md active:scale-95"
+      >
+        <Settings className="w-6 h-6" />
+      </button>
+
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}

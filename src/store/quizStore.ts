@@ -26,6 +26,9 @@ export interface QuizStore {
   
   theme: 'light' | 'dark';
   setTheme: (val: 'light' | 'dark') => void;
+  
+  isSettingsOpen: boolean;
+  setSettingsOpen: (val: boolean) => void;
 
   // Sources
   sources: SourceFile[];
@@ -75,6 +78,9 @@ export const useQuizStore = create<QuizStore>((set, get) => ({
   
   theme: 'light',
   setTheme: (val) => set({ theme: val }),
+  
+  isSettingsOpen: false,
+  setSettingsOpen: (val) => set({ isSettingsOpen: val }),
 
   sources: [],
   addSource: (source) => set((state) => ({ sources: [...state.sources, source] })),

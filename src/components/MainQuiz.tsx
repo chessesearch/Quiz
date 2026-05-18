@@ -6,39 +6,11 @@ import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { Clock, Pause, Play, LogOut, CheckSquare } from "lucide-react";
 
-export default function MainQuiz() {
-  const {
-    questions,
-    currentIndex,
-    answers,
-    submitAnswer,
-    nextQuestion,
-    showResultAfterQuestion,
-    autoNext,
-    startTime,
-    isPaused,
-    accumulatedTime,
-    pauseQuiz,
-    resumeQuiz,
-    exitQuiz,
-    submitQuizEarly
-  } = useQuizStore();
-
-  const [selectedOptionId, setSelectedOptionId] = useState<string | null>(null);
-  const [showFeedback, setShowFeedback] = useState(false);
+const Timer = () => {
+  const startTime = useQuizStore(state => state.startTime);
+  const isPaused = useQuizStore(state => state.isPaused);
+  const accumulatedTime = useQuizStore(state => state.accumulatedTime);
   const [elapsedTime, setElapsedTime] = useState(0);
-  const [showExitConfirm, setShowExitConfirm] = useState(false);
-  const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
-
-  const question = questions[currentIndex];
-  const total = questions.length;
-  const progress = ((currentIndex) / total) * 100;
-
-  useEffect(() => {
-    // Reset local state when question changes
-    setSelectedOptionId(null);
-    setShowFeedback(false);
-  }, [currentIndex]);
 
   useEffect(() => {
     const updateTime = () => {
@@ -59,6 +31,40 @@ export default function MainQuiz() {
     const s = (seconds % 60).toString().padStart(2, "0");
     return `${m}:${s}`;
   };
+
+  return <>{formatTime(elapsedTime)}</>;
+};
+
+export default function MainQuiz() {
+  const {
+    questions,
+    currentIndex,
+    answers,
+    submitAnswer,
+    nextQuestion,
+    showResultAfterQuestion,
+    autoNext,
+    isPaused,
+    pauseQuiz,
+    resumeQuiz,
+    exitQuiz,
+    submitQuizEarly
+  } = useQuizStore();
+
+  const [selectedOptionId, setSelectedOptionId] = useState<string | null>(null);
+  const [showFeedback, setShowFeedback] = useState(false);
+  const [showExitConfirm, setShowExitConfirm] = useState(false);
+  const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
+
+  const question = questions[currentIndex];
+  const total = questions.length;
+  const progress = ((currentIndex) / total) * 100;
+
+  useEffect(() => {
+    // Reset local state when question changes
+    setSelectedOptionId(null);
+    setShowFeedback(false);
+  }, [currentIndex]);
 
   const handleSelectOption = useCallback((optionId: string) => {
     if (showFeedback) return; // Prevent changing after submitted and waiting for next
@@ -145,7 +151,7 @@ export default function MainQuiz() {
           </div>
           <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 px-3 py-1.5 md:px-4 md:py-2 rounded-full text-slate-700 dark:text-slate-300 font-medium text-xs md:text-sm">
             <Clock className="w-3.5 h-3.5 md:w-4 md:h-4 text-slate-500 dark:text-slate-400" />
-            {formatTime(elapsedTime)}
+            <Timer />
           </div>
         </div>
 

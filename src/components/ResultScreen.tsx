@@ -20,7 +20,7 @@ export default function ResultScreen() {
     }
   }
 
-  const percentage = Math.round((correctCount / total) * 100) || 0;
+  const score10 = total > 0 ? parseFloat(((correctCount / total) * 10).toFixed(2)) : 0;
   const totalSeconds = totalTime ? Math.floor(totalTime / 1000) : 0;
   const avgTime = total > 0 ? (totalSeconds / total).toFixed(1) : "0";
 
@@ -48,7 +48,7 @@ export default function ResultScreen() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
             <div className="bg-slate-50 dark:bg-slate-900/50 p-4 md:p-6 rounded-2xl">
               <div className="text-xs md:text-sm font-medium text-slate-500 dark:text-slate-400 mb-1">Điểm số</div>
-              <div className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-slate-100">{percentage}%</div>
+              <div className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-slate-100">{score10}</div>
             </div>
             <div className="bg-slate-50 dark:bg-slate-900/50 p-4 md:p-6 rounded-2xl">
               <div className="text-xs md:text-sm font-medium text-slate-500 dark:text-slate-400 mb-1">Chính xác</div>
@@ -76,7 +76,7 @@ export default function ResultScreen() {
               onClick={resetApp}
               className="flex items-center justify-center gap-2 bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 px-6 md:px-8 py-3 md:py-4 rounded-xl font-bold transition-all hover:bg-slate-50 dark:hover:bg-slate-700 hover:border-slate-300 dark:hover:border-slate-600 active:scale-95 text-sm md:text-base"
             >
-              Quay lại cài đặt
+              Quay lại trang chủ
             </button>
           </div>
         </motion.div>

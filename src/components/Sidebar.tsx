@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { useQuizStore } from "@/store/quizStore";
 import { parseFile } from "@/lib/parser";
-import { Plus, Trash2, FileText, FileWarning, Sun, Moon } from "lucide-react";
+import { Plus, Trash2, FileText, FileWarning, Sun, Moon, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export default function Sidebar() {
@@ -21,7 +21,8 @@ export default function Sidebar() {
     toggleSource,
     removeSource,
     theme,
-    setTheme
+    setTheme,
+    setSettingsOpen
   } = useQuizStore();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -59,12 +60,20 @@ export default function Sidebar() {
       <div className="p-6 border-b border-slate-200 dark:border-slate-700 shrink-0">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">Cài đặt</h2>
-          <button 
-            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} 
-            className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-colors"
-          >
-            {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-          </button>
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} 
+              className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-colors"
+            >
+              {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+            </button>
+            <button 
+              onClick={() => setSettingsOpen(false)} 
+              className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
         
         <div className="space-y-4">
