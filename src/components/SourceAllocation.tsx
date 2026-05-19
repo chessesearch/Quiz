@@ -106,13 +106,19 @@ export default function SourceAllocation({ sources, totalQuestions, allocations,
       setDraggingIdx(null);
     };
 
-    const handleMouseMove = (e: MouseEvent) => {
+    const handleMouseMove = (e: MouseEvent | TouchEvent) => {
       if (draggingIdx === null || !barRef.current) return;
 
+      // Prevent scrolling while dragging on touch devices
+      if (e.type === 'touchmove') {
+        e.preventDefault();
+      }
+
+      const clientX = 'touches' in e ? e.touches[0].clientX : (e as MouseEvent).clientX;
       const rect = barRef.current.getBoundingClientRect();
       // Calculate which block the mouse is over
       const blockWidth = rect.width / totalQuestions;
-      const mouseX = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
+      const mouseX = Math.max(0, Math.min(clientX - rect.left, rect.width));
       const targetBlockIndex = Math.floor(mouseX / blockWidth); // 0 to totalQuestions - 1
 
       // We are dragging the divider between activeSources[draggingIdx] and activeSources[draggingIdx + 1]
@@ -153,13 +159,17 @@ export default function SourceAllocation({ sources, totalQuestions, allocations,
     };
 
     if (draggingIdx !== null) {
-      window.addEventListener("mousemove", handleMouseMove);
+      window.addEventListener("mousemove", handleMouseMove as EventListener);
       window.addEventListener("mouseup", handleMouseUp);
+      window.addEventListener("touchmove", handleMouseMove as EventListener, { passive: false });
+      window.addEventListener("touchend", handleMouseUp);
     }
 
     return () => {
-      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mousemove", handleMouseMove as EventListener);
       window.removeEventListener("mouseup", handleMouseUp);
+      window.removeEventListener("touchmove", handleMouseMove as EventListener);
+      window.removeEventListener("touchend", handleMouseUp);
     };
   }, [draggingIdx, allocations, activeSources, totalQuestions, onChange]);
 
@@ -242,7 +252,7 @@ export default function SourceAllocation({ sources, totalQuestions, allocations,
       {/* Allocation Bar */}
       <div 
         ref={barRef}
-        className="relative h-12 w-full flex rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-200 dark:bg-slate-800 select-none shadow-inner"
+        className="relative h-10 md:h-12 w-full flex rounded-xl overflow-x-auto overflow-y-hidden border border-slate-200 dark:border-slate-700 bg-slate-200 dark:bg-slate-800 select-none shadow-inner touch-pan-y"
         style={{ cursor: draggingIdx !== null ? 'col-resize' : 'default' }}
       >
         {blocks.map((b, i) => (
@@ -285,11 +295,15 @@ export default function SourceAllocation({ sources, totalQuestions, allocations,
           return (
             <div 
               key={`div-${source.id}`}
-              className="absolute top-0 bottom-0 w-4 -ml-2 cursor-col-resize flex items-center justify-center z-20 group"
+              className="absolute top-0 bottom-0 w-8 -ml-4 cursor-col-resize flex items-center justify-center z-20 group touch-none"
               style={{ left: `${leftPercent}%` }}
               onMouseDown={() => handleDragStart(idx)}
+              onTouchStart={(e) => {
+                // e.preventDefault(); // Prevent default to avoid scroll on touch start, though passive: false might be needed
+                handleDragStart(idx);
+              }}
             >
-              <div className="w-1 h-8 bg-white dark:bg-slate-200 rounded-full shadow-md transition-transform group-hover:scale-x-150 group-hover:bg-indigo-400" />
+              <div className="w-1 h-6 md:h-8 bg-white dark:bg-slate-200 rounded-full shadow-md transition-transform group-hover:scale-x-150 group-hover:bg-indigo-400 group-active:scale-x-150 group-active:bg-indigo-500" />
             </div>
           );
         })}

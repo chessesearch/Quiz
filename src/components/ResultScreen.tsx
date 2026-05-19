@@ -12,6 +12,7 @@ export default function ResultScreen() {
   const [addExtra, setAddExtra] = useState(false);
   const [extraCount, setExtraCount] = useState<number>(10);
   const [extraMode, setExtraMode] = useState<'TIME' | 'RANDOM'>('TIME');
+  const [selectedTooltipId, setSelectedTooltipId] = useState<string | null>(null);
 
   const total = questions.length;
   let correctCount = 0;
@@ -43,7 +44,10 @@ export default function ResultScreen() {
   }
 
   return (
-    <div className="flex-1 overflow-y-auto bg-slate-50 dark:bg-slate-950 p-4 md:p-8 lg:p-12 transition-colors duration-300">
+    <div 
+      className="flex-1 overflow-y-auto bg-slate-50 dark:bg-slate-950 p-4 md:p-8 lg:p-12 transition-colors duration-300"
+      onClick={() => setSelectedTooltipId(null)}
+    >
       <div className="max-w-4xl mx-auto space-y-8">
         
         <motion.div 
@@ -138,62 +142,85 @@ export default function ResultScreen() {
                   <span>0:00</span>
                 </div>
 
-                <div className="flex-1 flex flex-col min-w-0">
-                  {/* Chart Area */}
-                  <div className="flex-1 flex items-end gap-1 md:gap-2 border-b border-l border-slate-200 dark:border-slate-700 pt-2">
-                    {sortedQuestions.map((q, idx) => {
-                      const timeMs = questionTimes[q.id] || 0;
-                      const heightPercent = Math.max((timeMs / maxTime) * 100, 2);
-                      const isCorrect = answers[q.id] === q.correctOptionId;
-                      const userOption = q.options.find(o => o.id === answers[q.id]);
-                      const correctOption = q.options.find(o => o.id === q.correctOptionId);
+                <div className="flex-1 flex flex-col min-w-0 overflow-x-auto touch-pan-x pb-2 -mb-2">
+                  <div className="min-w-[300px] md:min-w-0 flex-1 flex flex-col h-full pr-4">
+                    {/* Chart Area */}
+                    <div className="flex-1 flex items-end gap-1 md:gap-2 border-b border-l border-slate-200 dark:border-slate-700 pt-2 relative">
+                      {sortedQuestions.map((q, idx) => {
+                        const timeMs = questionTimes[q.id] || 0;
+                        const heightPercent = Math.max((timeMs / maxTime) * 100, 2);
+                        const isCorrect = answers[q.id] === q.correctOptionId;
+                        const userOption = q.options.find(o => o.id === answers[q.id]);
+                        const correctOption = q.options.find(o => o.id === q.correctOptionId);
+                        const isSelected = selectedTooltipId === q.id;
 
-                      return (
-                        <div key={q.id} className="relative group flex-1 flex flex-col justify-end h-full">
-                          <div className="w-full flex-1 flex items-end relative">
-                            <div 
-                              className={cn(
-                                "w-full rounded-t-[3px] transition-all duration-300",
-                                isCorrect 
-                                  ? "bg-green-500/80 hover:bg-green-400 dark:bg-green-600/80 dark:hover:bg-green-500" 
-                                  : "bg-red-500/80 hover:bg-red-400 dark:bg-red-600/80 dark:hover:bg-red-500"
-                              )}
-                              style={{ height: `${heightPercent}%` }}
-                            />
-
-                            {/* Tooltip */}
-                            <div className="absolute bottom-[calc(100%+10px)] left-1/2 -translate-x-1/2 hidden group-hover:block z-20 w-56 md:w-80 p-3 md:p-4 bg-slate-900 dark:bg-slate-800 border border-slate-700 text-white rounded-xl text-xs md:text-sm shadow-2xl pointer-events-none">
-                              <div className="mb-2 text-xs font-bold text-slate-400">Thời gian: {formatTime(Math.floor(timeMs / 1000))}</div>
-                              <div className="mb-3 line-clamp-3 leading-relaxed">{q.text}</div>
-                              
-                              <div className="space-y-2 text-[10px] md:text-xs">
-                                <div className="flex gap-2">
-                                  <span className={cn("shrink-0 font-bold", isCorrect ? "text-green-400" : "text-red-400")}>Bạn chọn:</span>
-                                  <span className="line-clamp-2">{userOption ? userOption.text : "Chưa trả lời"}</span>
-                                </div>
-                                {!isCorrect && correctOption && (
-                                  <div className="flex gap-2">
-                                    <span className="shrink-0 font-bold text-green-400">Đáp án:</span>
-                                    <span className="line-clamp-2">{correctOption.text}</span>
-                                  </div>
+                        return (
+                          <div 
+                            key={q.id} 
+                            className="relative flex-1 flex flex-col justify-end h-full cursor-pointer"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedTooltipId(isSelected ? null : q.id);
+                            }}
+                          >
+                            <div className="w-full flex-1 flex items-end relative">
+                              <div 
+                                className={cn(
+                                  "w-full rounded-t-[3px] transition-all duration-300",
+                                  isCorrect 
+                                    ? "bg-green-500/80 hover:bg-green-400 dark:bg-green-600/80 dark:hover:bg-green-500" 
+                                    : "bg-red-500/80 hover:bg-red-400 dark:bg-red-600/80 dark:hover:bg-red-500",
+                                  isSelected && (isCorrect ? "bg-green-400 dark:bg-green-500 brightness-110" : "bg-red-400 dark:bg-red-500 brightness-110")
                                 )}
-                              </div>
+                                style={{ height: `${heightPercent}%` }}
+                              />
 
-                              <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-slate-900 dark:bg-slate-800 border-b border-r border-slate-700 rotate-45"></div>
+                              {/* Tooltip */}
+                              <AnimatePresence>
+                                {isSelected && (
+                                  <motion.div 
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: 10 }}
+                                    className="absolute bottom-[calc(100%+10px)] left-1/2 -translate-x-1/2 z-30 w-56 md:w-80 p-3 md:p-4 bg-slate-900 dark:bg-slate-800 border border-slate-700 text-white rounded-xl text-xs md:text-sm shadow-2xl pointer-events-none"
+                                  >
+                                    <div className="mb-2 text-xs font-bold text-slate-400">Thời gian: {formatTime(Math.floor(timeMs / 1000))}</div>
+                                    <div className="mb-3 line-clamp-3 leading-relaxed">{q.text}</div>
+                                    
+                                    <div className="space-y-2 text-[10px] md:text-xs">
+                                      <div className="flex gap-2">
+                                        <span className={cn("shrink-0 font-bold", isCorrect ? "text-green-400" : "text-red-400")}>Bạn chọn:</span>
+                                        <span className="line-clamp-2">{userOption ? userOption.text : "Chưa trả lời"}</span>
+                                      </div>
+                                      {!isCorrect && correctOption && (
+                                        <div className="flex gap-2">
+                                          <span className="shrink-0 font-bold text-green-400">Đáp án:</span>
+                                          <span className="line-clamp-2">{correctOption.text}</span>
+                                        </div>
+                                      )}
+                                    </div>
+
+                                    <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-slate-900 dark:bg-slate-800 border-b border-r border-slate-700 rotate-45"></div>
+                                  </motion.div>
+                                )}
+                              </AnimatePresence>
                             </div>
                           </div>
+                        );
+                      })}
+                    </div>
+                    
+                    {/* X-axis Labels */}
+                    <div className="flex gap-1 md:gap-2 mt-1.5 md:mt-2 ml-[1px]">
+                      {sortedQuestions.map((q, idx) => (
+                        <div key={q.id} className={cn(
+                          "flex-1 text-center text-[9px] md:text-[10px] font-medium truncate transition-colors",
+                          selectedTooltipId === q.id ? "text-indigo-600 dark:text-indigo-400 font-bold" : "text-slate-400"
+                        )}>
+                          {idx + 1}
                         </div>
-                      );
-                    })}
-                  </div>
-                  
-                  {/* X-axis Labels */}
-                  <div className="flex gap-1 md:gap-2 mt-1.5 md:mt-2 ml-[1px]">
-                    {sortedQuestions.map((q, idx) => (
-                      <div key={q.id} className="flex-1 text-center text-[9px] md:text-[10px] text-slate-400 font-medium truncate">
-                        {idx + 1}
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
