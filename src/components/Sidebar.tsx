@@ -8,41 +8,33 @@ import { Plus, Trash2, FileText, FileWarning, Sun, Moon, X } from "lucide-react"
 import { cn } from "@/lib/utils";
 
 export default function Sidebar() {
-  const {
-    showResultAfterQuestion,
-    setShowResultAfterQuestion,
-    autoNext,
-    setAutoNext,
-    questionCountMode,
-    setQuestionCountMode,
-    customQuestionCount,
-    setCustomQuestionCount,
-    sources,
-    addSource,
-    toggleSource,
-    removeSource,
-    theme,
-    setTheme,
-    setSettingsOpen,
-    sourceAllocations,
-    setSourceAllocations
-  } = useQuizStore();
+  const store = useQuizStore();
+
+  // Local state for settings, initialized from the store on mount
+  const [localShowResult, setLocalShowResult] = useState(store.showResultAfterQuestion);
+  const [localAutoNext, setLocalAutoNext] = useState(store.autoNext);
+  const [localCountMode, setLocalCountMode] = useState(store.questionCountMode);
+  const [localCustomCount, setLocalCustomCount] = useState(store.customQuestionCount);
+  const [localAllocations, setLocalAllocations] = useState(store.sourceAllocations);
+  const [localSources, setLocalSources] = useState(store.sources);
+  const [isSaved, setIsSaved] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
 
-  const totalAvailable = sources.filter(s => s.active && s.isValid).reduce((acc, curr) => acc + curr.questionsCount, 0);
+  const totalAvailable = localSources.filter(s => s.active && s.isValid).reduce((acc, curr) => acc + curr.questionsCount, 0);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
     setIsUploading(true);
+    const newSources = [...localSources];
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       const result = await parseFile(file);
       
-      addSource({
+      newSources.push({
         id: Math.random().toString(36).substring(2, 9),
         name: file.name,
         questionsCount: result.questions.length,
@@ -52,10 +44,34 @@ export default function Sidebar() {
         error: result.error
       });
     }
+    setLocalSources(newSources);
     setIsUploading(false);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
+  };
+
+  const toggleLocalSource = (id: string) => {
+    setLocalSources(prev => 
+      prev.map(s => s.id === id ? { ...s, active: !s.active } : s)
+    );
+  };
+
+  const removeLocalSource = (id: string) => {
+    setLocalSources(prev => prev.filter(s => s.id !== id));
+  };
+
+  const handleSave = () => {
+    useQuizStore.setState({
+      showResultAfterQuestion: localShowResult,
+      autoNext: localAutoNext,
+      questionCountMode: localCountMode,
+      customQuestionCount: localCustomCount,
+      sourceAllocations: localAllocations,
+      sources: localSources
+    });
+    setIsSaved(true);
+    setTimeout(() => setIsSaved(false), 2000);
   };
 
   return (
@@ -66,13 +82,13 @@ export default function Sidebar() {
           <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">Cài đặt</h2>
           <div className="flex items-center gap-2">
             <button 
-              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} 
+              onClick={() => store.setTheme(store.theme === 'dark' ? 'light' : 'dark')} 
               className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-colors"
             >
-              {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+              {store.theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
             </button>
             <button 
-              onClick={() => setSettingsOpen(false)} 
+              onClick={() => store.setSettingsOpen(false)} 
               className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-colors"
             >
               <X className="w-5 h-5" />
@@ -91,11 +107,11 @@ export default function Sidebar() {
               <input
                 type="checkbox"
                 className="peer sr-only"
-                checked={showResultAfterQuestion}
-                onChange={(e) => setShowResultAfterQuestion(e.target.checked)}
+                checked={localShowResult}
+                onChange={(e) => setLocalShowResult(e.target.checked)}
               />
               <div className="w-5 h-5 border-2 border-slate-300 dark:border-slate-600 rounded transition-colors peer-checked:bg-indigo-600 peer-checked:border-indigo-600 dark:peer-checked:bg-indigo-500 dark:peer-checked:border-indigo-500 group-hover:border-indigo-500 flex items-center justify-center">
-                {showResultAfterQuestion && (
+                {localShowResult && (
                   <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                   </svg>
@@ -110,11 +126,11 @@ export default function Sidebar() {
               <input
                 type="checkbox"
                 className="peer sr-only"
-                checked={autoNext}
-                onChange={(e) => setAutoNext(e.target.checked)}
+                checked={localAutoNext}
+                onChange={(e) => setLocalAutoNext(e.target.checked)}
               />
               <div className="w-5 h-5 border-2 border-slate-300 dark:border-slate-600 rounded transition-colors peer-checked:bg-indigo-600 peer-checked:border-indigo-600 dark:peer-checked:bg-indigo-500 dark:peer-checked:border-indigo-500 group-hover:border-indigo-500 flex items-center justify-center">
-                {autoNext && (
+                {localAutoNext && (
                   <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                   </svg>
@@ -132,8 +148,8 @@ export default function Sidebar() {
                   type="radio"
                   name="questionCountMode"
                   value="ALL"
-                  checked={questionCountMode === 'ALL'}
-                  onChange={() => setQuestionCountMode('ALL')}
+                  checked={localCountMode === 'ALL'}
+                  onChange={() => setLocalCountMode('ALL')}
                   className="w-4 h-4 text-indigo-600 dark:text-indigo-500 focus:ring-indigo-500 border-slate-300 dark:border-slate-600"
                 />
                 <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Tất cả ({totalAvailable})</span>
@@ -145,8 +161,8 @@ export default function Sidebar() {
                     type="radio"
                     name="questionCountMode"
                     value="CUSTOM"
-                    checked={questionCountMode === 'CUSTOM'}
-                    onChange={() => setQuestionCountMode('CUSTOM')}
+                    checked={localCountMode === 'CUSTOM'}
+                    onChange={() => setLocalCountMode('CUSTOM')}
                     className="w-4 h-4 text-indigo-600 dark:text-indigo-500 focus:ring-indigo-500 border-slate-300 dark:border-slate-600"
                   />
                   <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Tùy chỉnh:</span>
@@ -155,19 +171,19 @@ export default function Sidebar() {
                   type="number"
                   min={1}
                   max={totalAvailable || 1}
-                  disabled={questionCountMode !== 'CUSTOM'}
-                  value={customQuestionCount}
-                  onChange={(e) => setCustomQuestionCount(parseInt(e.target.value) || 1)}
+                  disabled={localCountMode !== 'CUSTOM'}
+                  value={localCustomCount}
+                  onChange={(e) => setLocalCustomCount(parseInt(e.target.value) || 1)}
                   className="w-20 px-2 py-1 text-sm border border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:bg-slate-50 dark:disabled:bg-slate-900/50"
                 />
               </div>
 
-              {questionCountMode === 'CUSTOM' && sources.filter(s => s.active && s.isValid).length > 0 && (
+              {localCountMode === 'CUSTOM' && localSources.filter(s => s.active && s.isValid).length > 0 && (
                 <SourceAllocation
-                  sources={sources}
-                  totalQuestions={customQuestionCount}
-                  allocations={sourceAllocations}
-                  onChange={setSourceAllocations}
+                  sources={localSources}
+                  totalQuestions={localCustomCount}
+                  allocations={localAllocations}
+                  onChange={setLocalAllocations}
                 />
               )}
             </div>
@@ -200,7 +216,7 @@ export default function Sidebar() {
 
           <div className="p-5 md:p-6 flex-1">
 
-        {sources.length === 0 ? (
+        {localSources.length === 0 ? (
           <div className="text-center py-8 text-slate-500 dark:text-slate-400 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl">
             <FileText className="w-8 h-8 mx-auto mb-2 text-slate-300 dark:text-slate-600" />
             <p className="text-sm">Chưa có tệp nào được tải lên.</p>
@@ -208,7 +224,7 @@ export default function Sidebar() {
           </div>
         ) : (
           <div className="space-y-3">
-            {sources.map((source) => (
+            {localSources.map((source) => (
               <div
                 key={source.id}
                 className={cn(
@@ -223,7 +239,7 @@ export default function Sidebar() {
                     type="checkbox"
                     checked={source.active}
                     disabled={!source.isValid}
-                    onChange={() => toggleSource(source.id)}
+                    onChange={() => toggleLocalSource(source.id)}
                     className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 disabled:opacity-50"
                   />
                 </div>
@@ -234,7 +250,7 @@ export default function Sidebar() {
                       {source.name}
                     </h3>
                     <button
-                      onClick={() => removeSource(source.id)}
+                      onClick={() => removeLocalSource(source.id)}
                       className="text-slate-400 hover:text-red-500 dark:hover:text-red-400 shrink-0"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -258,6 +274,27 @@ export default function Sidebar() {
         )}
           </div>
         </div>
+      </div>
+
+      {/* Fixed Footer with Cancel and Save Buttons */}
+      <div className="p-4 border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shrink-0 flex gap-3 z-20">
+        <button
+          onClick={() => store.setSettingsOpen(false)}
+          className="flex-1 py-3 px-4 rounded-xl font-bold text-slate-700 dark:text-slate-300 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 transition-all active:scale-[0.98] text-sm"
+        >
+          Hủy
+        </button>
+        <button
+          onClick={handleSave}
+          className={cn(
+            "flex-1 py-3 px-4 rounded-xl font-bold text-white transition-all shadow-md active:scale-[0.98] text-sm",
+            isSaved 
+              ? "bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600" 
+              : "bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600"
+          )}
+        >
+          {isSaved ? "Đã lưu!" : "Save"}
+        </button>
       </div>
     </div>
   );

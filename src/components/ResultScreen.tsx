@@ -94,7 +94,19 @@ export default function ResultScreen() {
               className="flex items-center justify-center gap-2 bg-indigo-600 dark:bg-indigo-500 text-white px-6 md:px-8 py-3 md:py-4 rounded-xl font-bold transition-all hover:bg-indigo-700 dark:hover:bg-indigo-600 shadow-md hover:shadow-lg active:scale-95 text-sm md:text-base"
             >
               <RotateCcw className="w-5 h-5" />
-              Làm lại bài
+              Làm lại toàn bộ bài
+            </button>
+            <button
+              onClick={() => setIsRetryModalOpen(true)}
+              disabled={incorrectQuestions.length === 0}
+              className={cn(
+                "flex items-center justify-center gap-2 px-6 md:px-8 py-3 md:py-4 rounded-xl font-bold transition-all text-sm md:text-base cursor-pointer",
+                "bg-rose-600 hover:bg-rose-700 dark:bg-rose-500 dark:hover:bg-rose-600 text-white shadow-md hover:shadow-lg active:scale-95 active:bg-rose-700 dark:active:bg-rose-600 focus:outline-none focus:ring-2 focus:ring-rose-500/50",
+                "disabled:bg-slate-200 dark:disabled:bg-slate-800 disabled:text-slate-400 dark:disabled:text-slate-650 disabled:shadow-none disabled:cursor-not-allowed disabled:scale-100 disabled:ring-0 disabled:border-transparent"
+              )}
+            >
+              <PlayCircle className="w-5 h-5" />
+              Làm lại các câu sai
             </button>
             <button
               onClick={resetApp}
@@ -140,11 +152,11 @@ export default function ResultScreen() {
               transition={{ delay: 0.1 + sIdx * 0.1 }}
               className="bg-white dark:bg-slate-800 rounded-3xl p-6 md:p-8 shadow-sm border border-slate-100 dark:border-slate-700 transition-colors duration-300"
             >
-              <h2 className="text-lg md:text-xl font-bold text-slate-800 dark:text-slate-100 mb-6">Thời gian làm bài: {sourceName}</h2>
+              <h2 className="text-lg md:text-xl font-bold text-slate-800 dark:text-slate-100 mb-6">Thống kê thời gian: {sourceName}</h2>
               
               <div className="flex mt-8 h-48 md:h-64">
                 {/* Y-axis Labels */}
-                <div className="flex flex-col justify-between items-end pr-2 md:pr-3 pb-8 text-[10px] md:text-xs font-medium text-slate-400 w-10 md:w-12 shrink-0 pt-2">
+                <div className="flex flex-col justify-between items-end pr-2 md:pr-3 pb-1 text-[10px] md:text-xs font-medium text-slate-400 w-10 md:w-12 shrink-0 pt-2">
                   <span>{formatTime(Math.floor(maxTime / 1000))}</span>
                   <span>{formatTime(Math.floor((maxTime / 2) / 1000))}</span>
                   <span>0:00</span>
@@ -210,38 +222,7 @@ export default function ResultScreen() {
                       })}
                     </div>
                     
-                    {/* X-axis Labels */}
-                    <div 
-                      className={cn(
-                        "flex mt-1.5 md:mt-2 ml-[1px]",
-                        sourceTotalQuestions > 30 
-                          ? "gap-0.5" 
-                          : sourceTotalQuestions > 15 
-                            ? "gap-1" 
-                            : "gap-1.5 md:gap-2"
-                      )}
-                    >
-                      {sortedQuestions.map((q, idx) => (
-                        <div 
-                          key={q.id} 
-                          className={cn(
-                            "flex-1 text-center font-medium truncate transition-colors",
-                            sourceTotalQuestions > 35
-                              ? "text-[6.5px] leading-none"
-                              : sourceTotalQuestions > 25
-                                ? "text-[7.5px] leading-none"
-                                : sourceTotalQuestions > 15
-                                  ? "text-[8.5px]"
-                                  : "text-[10px] md:text-xs",
-                            selectedTooltipId === q.id 
-                              ? "text-indigo-600 dark:text-indigo-400 font-bold scale-110" 
-                              : "text-slate-400"
-                          )}
-                        >
-                          {idx + 1}
-                        </div>
-                      ))}
-                    </div>
+                    
                   </div>
                 </div>
               </div>
@@ -284,13 +265,6 @@ export default function ResultScreen() {
                 <AlertTriangle className="w-5 h-5 md:w-6 md:h-6 text-red-500" />
                 <h2 className="text-lg md:text-xl font-bold text-slate-800 dark:text-slate-100">Các câu trả lời sai cần xem lại</h2>
               </div>
-              <button 
-                onClick={() => setIsRetryModalOpen(true)}
-                className="flex items-center gap-2 px-3 py-1.5 md:px-4 md:py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg text-xs md:text-sm font-semibold transition-colors shadow-sm"
-              >
-                <PlayCircle className="w-4 h-4" />
-                Làm lại các câu sai
-              </button>
             </div>
 
             <div className="space-y-4">

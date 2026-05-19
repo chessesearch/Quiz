@@ -53,6 +53,7 @@ export default function MainQuiz() {
 
   const [selectedOptionId, setSelectedOptionId] = useState<string | null>(null);
   const [showFeedback, setShowFeedback] = useState(false);
+  const [isInputLocked, setIsInputLocked] = useState(false);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
 
@@ -64,14 +65,16 @@ export default function MainQuiz() {
     // Reset local state when question changes
     setSelectedOptionId(null);
     setShowFeedback(false);
+    setIsInputLocked(false);
   }, [currentIndex]);
 
   const handleSelectOption = useCallback((optionId: string) => {
-    if (showFeedback) return; // Prevent changing after submitted and waiting for next
+    if (showFeedback || isInputLocked) return; // Prevent selection when feedback is showing or locked
 
     setSelectedOptionId(optionId);
 
     if (autoNext) {
+      setIsInputLocked(true);
       submitAnswer(question.id, optionId);
       if (showResultAfterQuestion) {
         setShowFeedback(true);
@@ -79,30 +82,37 @@ export default function MainQuiz() {
           nextQuestion();
         }, 1500); // Wait 1.5s to show feedback
       } else {
-        nextQuestion();
+        setTimeout(() => {
+          nextQuestion();
+        }, 250); // Delay moving to let selection animation be visible and prevent spamming
       }
     }
-  }, [showFeedback, autoNext, submitAnswer, question.id, showResultAfterQuestion, nextQuestion]);
+  }, [showFeedback, isInputLocked, autoNext, submitAnswer, question.id, showResultAfterQuestion, nextQuestion]);
 
   const handleEnter = useCallback(() => {
-    if (!selectedOptionId) return;
+    if (!selectedOptionId || isInputLocked) return;
     if (autoNext) return; // Already handled on click
 
     if (!showFeedback) {
+      setIsInputLocked(true);
       submitAnswer(question.id, selectedOptionId);
       if (showResultAfterQuestion) {
         setShowFeedback(true);
+        setTimeout(() => {
+          setIsInputLocked(false);
+        }, 300); // Allow next input confirmation after a short delay
       } else {
         nextQuestion();
       }
     } else {
+      setIsInputLocked(true);
       nextQuestion();
     }
-  }, [selectedOptionId, autoNext, showFeedback, submitAnswer, question.id, showResultAfterQuestion, nextQuestion]);
+  }, [selectedOptionId, autoNext, showFeedback, submitAnswer, question.id, showResultAfterQuestion, nextQuestion, isInputLocked]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (isPaused || showExitConfirm || showSubmitConfirm) return;
+      if (isPaused || showExitConfirm || showSubmitConfirm || isInputLocked) return;
 
       if (e.key === "Enter") {
         e.preventDefault();
@@ -127,7 +137,7 @@ export default function MainQuiz() {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [handleEnter, showFeedback, question, handleSelectOption, selectedOptionId, isPaused]);
+  }, [handleEnter, showFeedback, question, handleSelectOption, selectedOptionId, isPaused, isInputLocked, showExitConfirm, showSubmitConfirm]);
 
   if (!question) return null;
 
@@ -314,11 +324,11 @@ export default function MainQuiz() {
                     <button
                       key={option.id}
                       onClick={() => handleSelectOption(option.id)}
-                      disabled={showFeedback}
+                      disabled={showFeedback || isInputLocked}
                       className={cn(
                         "w-full text-left p-3 md:p-4 rounded-xl md:rounded-2xl border-2 transition-all duration-200 flex items-start gap-3 md:gap-4",
                         stateClass,
-                        showFeedback ? "cursor-default" : "cursor-pointer active:scale-[0.99]"
+                        (showFeedback || isInputLocked) ? "cursor-default" : "cursor-pointer active:scale-[0.99]"
                       )}
                     >
                       <div className={cn(
@@ -339,7 +349,7 @@ export default function MainQuiz() {
                 <div className="mt-6 md:mt-8 flex justify-end">
                   <button
                     onClick={handleEnter}
-                    disabled={!selectedOptionId}
+                    disabled={!selectedOptionId || isInputLocked}
                     className="bg-slate-900 dark:bg-indigo-600 text-white px-6 md:px-8 py-3 md:py-4 rounded-xl font-medium transition-all hover:bg-slate-800 dark:hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg flex items-center gap-2 text-sm md:text-base"
                   >
                     {showFeedback ? "Câu tiếp theo" : "Xác nhận"}
