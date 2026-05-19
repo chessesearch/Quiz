@@ -12,7 +12,12 @@ export default function ResultScreen() {
   const [addExtra, setAddExtra] = useState(false);
   const [extraCount, setExtraCount] = useState<number>(10);
   const [extraMode, setExtraMode] = useState<'TIME' | 'RANDOM'>('TIME');
-  const [selectedTooltipId, setSelectedTooltipId] = useState<string | null>(null);
+  const [activeTooltip, setActiveTooltip] = useState<{
+    questionId: string;
+    rect: { top: number; left: number; width: number; height: number };
+  } | null>(null);
+
+  const selectedTooltipId = activeTooltip?.questionId || null;
 
   const total = questions.length;
   let correctCount = 0;
@@ -46,7 +51,10 @@ export default function ResultScreen() {
   return (
     <div 
       className="flex-1 overflow-y-auto bg-slate-50 dark:bg-slate-950 p-4 md:p-8 lg:p-12 transition-colors duration-300"
-      onClick={() => setSelectedTooltipId(null)}
+      onClick={() => setActiveTooltip(null)}
+      onScroll={() => {
+        if (activeTooltip) setActiveTooltip(null);
+      }}
     >
       <div className="max-w-4xl mx-auto space-y-8">
         
@@ -142,68 +150,60 @@ export default function ResultScreen() {
                   <span>0:00</span>
                 </div>
 
-                <div className="flex-1 flex flex-col min-w-0 overflow-x-auto touch-pan-x pb-2 -mb-2">
-                  <div className="min-w-[300px] md:min-w-0 flex-1 flex flex-col h-full pr-4">
+                <div className="flex-1 flex flex-col min-w-0">
+                  <div className="flex-1 flex flex-col h-full">
                     {/* Chart Area */}
-                    <div className="flex-1 flex items-end gap-1 md:gap-2 border-b border-l border-slate-200 dark:border-slate-700 pt-2 relative">
+                    <div 
+                      className={cn(
+                        "flex-1 flex items-end border-b border-l border-slate-200 dark:border-slate-700 pt-2 relative",
+                        sourceTotalQuestions > 30 
+                          ? "gap-0.5" 
+                          : sourceTotalQuestions > 15 
+                            ? "gap-1" 
+                            : "gap-1.5 md:gap-2"
+                      )}
+                    >
                       {sortedQuestions.map((q, idx) => {
                         const timeMs = questionTimes[q.id] || 0;
                         const heightPercent = Math.max((timeMs / maxTime) * 100, 2);
                         const isCorrect = answers[q.id] === q.correctOptionId;
-                        const userOption = q.options.find(o => o.id === answers[q.id]);
-                        const correctOption = q.options.find(o => o.id === q.correctOptionId);
                         const isSelected = selectedTooltipId === q.id;
+                        const isAnySelected = selectedTooltipId !== null;
 
                         return (
                           <div 
                             key={q.id} 
-                            className="relative flex-1 flex flex-col justify-end h-full cursor-pointer"
+                            className="relative flex-1 flex flex-col justify-end h-full cursor-pointer group"
                             onClick={(e) => {
                               e.stopPropagation();
-                              setSelectedTooltipId(isSelected ? null : q.id);
+                              if (isSelected) {
+                                setActiveTooltip(null);
+                              } else {
+                                const rect = e.currentTarget.getBoundingClientRect();
+                                setActiveTooltip({
+                                  questionId: q.id,
+                                  rect: {
+                                    top: rect.top,
+                                    left: rect.left,
+                                    width: rect.width,
+                                    height: rect.height,
+                                  }
+                                });
+                              }
                             }}
                           >
                             <div className="w-full flex-1 flex items-end relative">
                               <div 
                                 className={cn(
-                                  "w-full rounded-t-[3px] transition-all duration-300",
+                                  "w-full rounded-t-[2px] md:rounded-t-[3px] transition-all duration-300",
                                   isCorrect 
-                                    ? "bg-green-500/80 hover:bg-green-400 dark:bg-green-600/80 dark:hover:bg-green-500" 
-                                    : "bg-red-500/80 hover:bg-red-400 dark:bg-red-600/80 dark:hover:bg-red-500",
-                                  isSelected && (isCorrect ? "bg-green-400 dark:bg-green-500 brightness-110" : "bg-red-400 dark:bg-red-500 brightness-110")
+                                    ? "bg-green-500/80 hover:bg-green-400 dark:bg-green-600/80 dark:hover:bg-green-505" 
+                                    : "bg-red-500/80 hover:bg-red-400 dark:bg-red-600/80 dark:hover:bg-red-505",
+                                  isAnySelected && !isSelected && "opacity-35 scale-95",
+                                  isSelected && "ring-2 ring-indigo-500 dark:ring-indigo-400 scale-105 z-10 brightness-110 shadow-[0_0_12px_rgba(99,102,241,0.4)]"
                                 )}
                                 style={{ height: `${heightPercent}%` }}
                               />
-
-                              {/* Tooltip */}
-                              <AnimatePresence>
-                                {isSelected && (
-                                  <motion.div 
-                                    initial={{ opacity: 0, y: 10 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    exit={{ opacity: 0, y: 10 }}
-                                    className="absolute bottom-[calc(100%+10px)] left-1/2 -translate-x-1/2 z-30 w-56 md:w-80 p-3 md:p-4 bg-slate-900 dark:bg-slate-800 border border-slate-700 text-white rounded-xl text-xs md:text-sm shadow-2xl pointer-events-none"
-                                  >
-                                    <div className="mb-2 text-xs font-bold text-slate-400">Thời gian: {formatTime(Math.floor(timeMs / 1000))}</div>
-                                    <div className="mb-3 line-clamp-3 leading-relaxed">{q.text}</div>
-                                    
-                                    <div className="space-y-2 text-[10px] md:text-xs">
-                                      <div className="flex gap-2">
-                                        <span className={cn("shrink-0 font-bold", isCorrect ? "text-green-400" : "text-red-400")}>Bạn chọn:</span>
-                                        <span className="line-clamp-2">{userOption ? userOption.text : "Chưa trả lời"}</span>
-                                      </div>
-                                      {!isCorrect && correctOption && (
-                                        <div className="flex gap-2">
-                                          <span className="shrink-0 font-bold text-green-400">Đáp án:</span>
-                                          <span className="line-clamp-2">{correctOption.text}</span>
-                                        </div>
-                                      )}
-                                    </div>
-
-                                    <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-slate-900 dark:bg-slate-800 border-b border-r border-slate-700 rotate-45"></div>
-                                  </motion.div>
-                                )}
-                              </AnimatePresence>
                             </div>
                           </div>
                         );
@@ -211,12 +211,33 @@ export default function ResultScreen() {
                     </div>
                     
                     {/* X-axis Labels */}
-                    <div className="flex gap-1 md:gap-2 mt-1.5 md:mt-2 ml-[1px]">
+                    <div 
+                      className={cn(
+                        "flex mt-1.5 md:mt-2 ml-[1px]",
+                        sourceTotalQuestions > 30 
+                          ? "gap-0.5" 
+                          : sourceTotalQuestions > 15 
+                            ? "gap-1" 
+                            : "gap-1.5 md:gap-2"
+                      )}
+                    >
                       {sortedQuestions.map((q, idx) => (
-                        <div key={q.id} className={cn(
-                          "flex-1 text-center text-[9px] md:text-[10px] font-medium truncate transition-colors",
-                          selectedTooltipId === q.id ? "text-indigo-600 dark:text-indigo-400 font-bold" : "text-slate-400"
-                        )}>
+                        <div 
+                          key={q.id} 
+                          className={cn(
+                            "flex-1 text-center font-medium truncate transition-colors",
+                            sourceTotalQuestions > 35
+                              ? "text-[6.5px] leading-none"
+                              : sourceTotalQuestions > 25
+                                ? "text-[7.5px] leading-none"
+                                : sourceTotalQuestions > 15
+                                  ? "text-[8.5px]"
+                                  : "text-[10px] md:text-xs",
+                            selectedTooltipId === q.id 
+                              ? "text-indigo-600 dark:text-indigo-400 font-bold scale-110" 
+                              : "text-slate-400"
+                          )}
+                        >
                           {idx + 1}
                         </div>
                       ))}
@@ -434,6 +455,96 @@ export default function ResultScreen() {
             </motion.div>
           </motion.div>
         )}
+      </AnimatePresence>
+      {/* Floating Tooltip/Popover Portal */}
+      <AnimatePresence>
+        {activeTooltip && (() => {
+          const q = questions.find(question => question.id === activeTooltip.questionId);
+          if (!q) return null;
+          const timeMs = questionTimes[q.id] || 0;
+          const isCorrect = answers[q.id] === q.correctOptionId;
+          const userOption = q.options.find(o => o.id === answers[q.id]);
+          const correctOption = q.options.find(o => o.id === q.correctOptionId);
+
+          const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 800;
+          const barCenterX = activeTooltip.rect.left + activeTooltip.rect.width / 2;
+          const tooltipWidth = viewportWidth < 768 ? 260 : 325;
+
+          // Horizonally constrain the tooltip to the viewport edges
+          let left = barCenterX;
+          if (barCenterX - tooltipWidth / 2 < 16) {
+            left = 16 + tooltipWidth / 2;
+          } else if (barCenterX + tooltipWidth / 2 > viewportWidth - 16) {
+            left = viewportWidth - 16 - tooltipWidth / 2;
+          }
+
+          // Decide whether to show above or below the bar
+          const showBelow = activeTooltip.rect.top < 240;
+          const top = showBelow 
+            ? activeTooltip.rect.top + activeTooltip.rect.height 
+            : activeTooltip.rect.top;
+
+          const arrowLeft = barCenterX - left;
+
+          return (
+            <div 
+              className="fixed z-[100] pointer-events-none"
+              style={{ 
+                top: `${top}px`, 
+                left: `${left}px`,
+                transform: 'translateX(-50%)'
+              }}
+            >
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.95, y: showBelow ? -10 : 10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: showBelow ? -10 : 10 }}
+                className={cn(
+                  "relative p-3 md:p-4 bg-slate-900 dark:bg-slate-800 border border-slate-700 dark:border-slate-600 text-white rounded-xl text-xs md:text-sm shadow-2xl pointer-events-auto",
+                  showBelow ? "mt-2.5" : "mb-2.5 -translate-y-full"
+                )}
+                style={{ width: `${tooltipWidth}px` }}
+              >
+                <div className="mb-2 text-xs font-bold text-slate-400 flex justify-between items-center">
+                  <span>Thời gian: {formatTime(Math.floor(timeMs / 1000))}</span>
+                  <span className={cn(
+                    "text-[10px] px-1.5 py-0.5 rounded font-extrabold uppercase tracking-wide",
+                    isCorrect ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"
+                  )}>
+                    {isCorrect ? "Đúng" : "Sai"}
+                  </span>
+                </div>
+                <div className="mb-3 line-clamp-3 leading-relaxed font-medium">{q.text}</div>
+                
+                <div className="space-y-2 text-[10px] md:text-xs border-t border-slate-800 dark:border-slate-700/50 pt-2">
+                  <div className="flex gap-2">
+                    <span className={cn("shrink-0 font-bold", isCorrect ? "text-green-400" : "text-red-400")}>Bạn chọn:</span>
+                    <span className="line-clamp-2">{userOption ? userOption.text : "Chưa trả lời"}</span>
+                  </div>
+                  {!isCorrect && correctOption && (
+                    <div className="flex gap-2">
+                      <span className="shrink-0 font-bold text-green-400">Đáp án:</span>
+                      <span className="line-clamp-2">{correctOption.text}</span>
+                    </div>
+                  )}
+                </div>
+
+                <div 
+                  className={cn(
+                    "absolute w-3 h-3 bg-slate-900 dark:bg-slate-800 rotate-45 border border-slate-700 dark:border-slate-600 pointer-events-none",
+                    showBelow 
+                      ? "-top-1.5 border-t border-l border-b-0 border-r-0" 
+                      : "-bottom-1.5 border-b border-r border-t-0 border-l-0"
+                  )}
+                  style={{ 
+                    left: `calc(50% + ${arrowLeft}px)`, 
+                    transform: 'translateX(-50%) rotate(45deg)' 
+                  }}
+                />
+              </motion.div>
+            </div>
+          );
+        })()}
       </AnimatePresence>
     </div>
   );
