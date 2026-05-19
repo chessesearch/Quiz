@@ -12,6 +12,8 @@ export interface Question {
   text: string;
   options: Option[];
   correctOptionId: string;
+  sourceId?: string;
+  sourceName?: string;
 }
 
 export interface ParseResult {

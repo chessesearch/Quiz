@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { useQuizStore } from "@/store/quizStore";
 import { parseFile } from "@/lib/parser";
+import SourceAllocation from "./SourceAllocation";
 import { Plus, Trash2, FileText, FileWarning, Sun, Moon, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -22,7 +23,9 @@ export default function Sidebar() {
     removeSource,
     theme,
     setTheme,
-    setSettingsOpen
+    setSettingsOpen,
+    sourceAllocations,
+    setSourceAllocations
   } = useQuizStore();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -57,8 +60,9 @@ export default function Sidebar() {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <div className="p-6 border-b border-slate-200 dark:border-slate-700 shrink-0">
-        <div className="flex justify-between items-center mb-4">
+      {/* Fixed Modal Header */}
+      <div className="p-5 md:p-6 border-b border-slate-200 dark:border-slate-700 shrink-0 bg-white dark:bg-slate-900 z-20">
+        <div className="flex justify-between items-center">
           <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">Cài đặt</h2>
           <div className="flex items-center gap-2">
             <button 
@@ -75,8 +79,13 @@ export default function Sidebar() {
             </button>
           </div>
         </div>
+      </div>
+      
+      {/* Scrollable Content Area */}
+      <div className="flex-1 overflow-y-auto flex flex-col relative">
         
-        <div className="space-y-4">
+        {/* Settings Section */}
+        <div className="p-5 md:p-6 space-y-5 bg-white dark:bg-slate-900 shrink-0">
           <label className="flex items-start space-x-3 cursor-pointer group">
             <div className="relative flex items-center mt-1">
               <input
@@ -152,31 +161,44 @@ export default function Sidebar() {
                   className="w-20 px-2 py-1 text-sm border border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:bg-slate-50 dark:disabled:bg-slate-900/50"
                 />
               </div>
+
+              {questionCountMode === 'CUSTOM' && sources.filter(s => s.active && s.isValid).length > 0 && (
+                <SourceAllocation
+                  sources={sources}
+                  totalQuestions={customQuestionCount}
+                  allocations={sourceAllocations}
+                  onChange={setSourceAllocations}
+                />
+              )}
             </div>
           </div>
         </div>
-      </div>
 
-      <div className="flex-1 overflow-y-auto p-6 bg-slate-50/50 dark:bg-slate-900/50">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">Nguồn dữ liệu</h2>
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isUploading}
-            className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 flex items-center justify-center hover:bg-indigo-200 dark:hover:bg-indigo-900/80 transition-colors disabled:opacity-50"
-            title="Tải lên tệp .docx, .txt"
-          >
-            <Plus className="w-5 h-5" />
-          </button>
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={handleFileUpload}
-            accept=".txt,.docx"
-            multiple
-            className="hidden"
-          />
-        </div>
+        {/* Data Sources Section */}
+        <div className="flex-1 flex flex-col relative bg-slate-50/50 dark:bg-slate-900/50">
+          
+          {/* Sticky Header */}
+          <div className="sticky top-0 z-10 px-5 md:px-6 py-4 bg-slate-100/90 dark:bg-slate-800/90 backdrop-blur-sm border-y border-slate-200 dark:border-slate-700 flex items-center justify-between shadow-sm">
+            <h2 className="text-lg md:text-xl font-bold text-slate-800 dark:text-slate-100">Nguồn dữ liệu</h2>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isUploading}
+              className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 flex items-center justify-center hover:bg-indigo-200 dark:hover:bg-indigo-900/80 transition-colors disabled:opacity-50 shadow-sm"
+              title="Tải lên tệp .docx, .txt"
+            >
+              <Plus className="w-5 h-5" />
+            </button>
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileUpload}
+              accept=".txt,.docx"
+              multiple
+              className="hidden"
+            />
+          </div>
+
+          <div className="p-5 md:p-6 flex-1">
 
         {sources.length === 0 ? (
           <div className="text-center py-8 text-slate-500 dark:text-slate-400 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl">
@@ -234,6 +256,8 @@ export default function Sidebar() {
             ))}
           </div>
         )}
+          </div>
+        </div>
       </div>
     </div>
   );

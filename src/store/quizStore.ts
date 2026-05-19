@@ -24,6 +24,9 @@ export interface QuizStore {
   setQuestionCountMode: (val: 'ALL' | 'CUSTOM') => void;
   setCustomQuestionCount: (val: number) => void;
   
+  sourceAllocations: Record<string, number>;
+  setSourceAllocations: (allocs: Record<string, number>) => void;
+  
   theme: 'light' | 'dark';
   setTheme: (val: 'light' | 'dark') => void;
   
@@ -46,6 +49,10 @@ export interface QuizStore {
   totalTime: number | null;
   isPaused: boolean;
   
+  questionStartTime: number | null;
+  questionAccumulatedTime: number;
+  questionTimes: Record<string, number>;
+  
   startQuiz: () => void;
   pauseQuiz: () => void;
   resumeQuiz: () => void;
@@ -54,6 +61,7 @@ export interface QuizStore {
   submitAnswer: (questionId: string, optionId: string) => void;
   nextQuestion: () => void;
   retryQuiz: () => void;
+  retryIncorrectQuestions: (incorrectIds: string[], addExtra: boolean, extraCount: number, extraMode: 'TIME' | 'RANDOM') => void;
   resetApp: () => void;
 }
 
@@ -75,6 +83,9 @@ export const useQuizStore = create<QuizStore>((set, get) => ({
   customQuestionCount: 10,
   setQuestionCountMode: (val) => set({ questionCountMode: val }),
   setCustomQuestionCount: (val) => set({ customQuestionCount: val }),
+  
+  sourceAllocations: {},
+  setSourceAllocations: (allocs) => set({ sourceAllocations: allocs }),
   
   theme: 'light',
   setTheme: (val) => set({ theme: val }),
@@ -100,21 +111,53 @@ export const useQuizStore = create<QuizStore>((set, get) => ({
   totalTime: null,
   isPaused: false,
 
+  questionStartTime: null,
+  questionAccumulatedTime: 0,
+  questionTimes: {},
+
   startQuiz: () => {
-    const { sources } = get();
+    const { sources, questionCountMode, customQuestionCount, sourceAllocations } = get();
     const activeSources = sources.filter(s => s.active && s.isValid);
     if (activeSources.length === 0) return;
 
     let combinedQuestions: Question[] = [];
-    activeSources.forEach(source => {
-      combinedQuestions = [...combinedQuestions, ...source.questions];
-    });
+    
+    if (questionCountMode === 'CUSTOM' && Object.keys(sourceAllocations).length > 0) {
+      // Check if allocations match total custom count exactly
+      const sumAlloc = Object.values(sourceAllocations).reduce((a, b) => a + b, 0);
+      const isAllocValid = sumAlloc === customQuestionCount;
+      
+      if (isAllocValid) {
+        activeSources.forEach(source => {
+          const alloc = sourceAllocations[source.id] || 0;
+          if (alloc > 0) {
+            const qs = source.questions.map(q => ({ ...q, sourceId: source.id, sourceName: source.name }));
+            const shuffledQs = shuffleArray(qs).slice(0, alloc);
+            combinedQuestions = [...combinedQuestions, ...shuffledQs];
+          }
+        });
+      } else {
+        // Fallback if allocations are broken
+        activeSources.forEach(source => {
+          const withSource = source.questions.map(q => ({ ...q, sourceId: source.id, sourceName: source.name }));
+          combinedQuestions = [...combinedQuestions, ...withSource];
+        });
+      }
+    } else {
+      activeSources.forEach(source => {
+        const withSource = source.questions.map(q => ({ ...q, sourceId: source.id, sourceName: source.name }));
+        combinedQuestions = [...combinedQuestions, ...withSource];
+      });
+    }
 
-    // Shuffle questions and options
+    // Shuffle combined questions
     let finalQuestions = shuffleArray(combinedQuestions);
-    const { questionCountMode, customQuestionCount } = get();
-    if (questionCountMode === 'CUSTOM' && customQuestionCount > 0) {
-      finalQuestions = finalQuestions.slice(0, customQuestionCount);
+    
+    // If not using allocations (ALL or fallback CUSTOM), apply slice
+    if (questionCountMode === 'CUSTOM' && (Object.keys(sourceAllocations).length === 0 || Object.values(sourceAllocations).reduce((a, b) => a + b, 0) !== customQuestionCount)) {
+      if (customQuestionCount > 0) {
+        finalQuestions = finalQuestions.slice(0, customQuestionCount);
+      }
     }
 
     finalQuestions = finalQuestions.map(q => ({
@@ -130,7 +173,10 @@ export const useQuizStore = create<QuizStore>((set, get) => ({
       startTime: Date.now(),
       accumulatedTime: 0,
       totalTime: null,
-      isPaused: false
+      isPaused: false,
+      questionStartTime: Date.now(),
+      questionAccumulatedTime: 0,
+      questionTimes: {}
     });
   },
 
@@ -141,12 +187,29 @@ export const useQuizStore = create<QuizStore>((set, get) => ({
   },
 
   nextQuestion: () => {
-    const { currentIndex, questions, startTime, accumulatedTime } = get();
+    const state = get();
+    const { currentIndex, questions, startTime, accumulatedTime, questionStartTime, questionAccumulatedTime, questionTimes } = state;
+    
+    const currentQTime = questionAccumulatedTime + (questionStartTime ? Date.now() - questionStartTime : 0);
+    const currentQId = questions[currentIndex].id;
+    const newQuestionTimes = { ...questionTimes, [currentQId]: currentQTime };
+
     if (currentIndex < questions.length - 1) {
-      set({ currentIndex: currentIndex + 1 });
+      set({ 
+        currentIndex: currentIndex + 1,
+        questionTimes: newQuestionTimes,
+        questionStartTime: Date.now(),
+        questionAccumulatedTime: 0
+      });
     } else {
       const finalTime = accumulatedTime + (startTime ? Date.now() - startTime : 0);
-      set({ state: 'COMPLETED', totalTime: finalTime, startTime: null });
+      set({ 
+        state: 'COMPLETED', 
+        totalTime: finalTime, 
+        startTime: null,
+        questionTimes: newQuestionTimes,
+        questionStartTime: null
+      });
     }
   },
 
@@ -165,25 +228,83 @@ export const useQuizStore = create<QuizStore>((set, get) => ({
       startTime: Date.now(),
       accumulatedTime: 0,
       totalTime: null,
-      isPaused: false
+      isPaused: false,
+      questionStartTime: Date.now(),
+      questionAccumulatedTime: 0,
+      questionTimes: {}
+    });
+  },
+
+  retryIncorrectQuestions: (incorrectIds, addExtra, extraCount, extraMode) => {
+    const { questions, questionTimes, sources } = get();
+    
+    const incorrectQuestions = questions.filter(q => incorrectIds.includes(q.id));
+    let extraQuestions: Question[] = [];
+    
+    if (addExtra && extraCount > 0) {
+      if (extraMode === 'TIME') {
+        const correctQuestions = questions.filter(q => !incorrectIds.includes(q.id));
+        const sortedCorrect = [...correctQuestions].sort((a, b) => {
+          const timeA = questionTimes[a.id] || 0;
+          const timeB = questionTimes[b.id] || 0;
+          return timeB - timeA;
+        });
+        extraQuestions = sortedCorrect.slice(0, extraCount);
+      } else {
+        let allPool: Question[] = [];
+        sources.filter(s => s.active && s.isValid).forEach(source => {
+           const qs = source.questions.map(q => ({ ...q, sourceId: source.id, sourceName: source.name }));
+           allPool = [...allPool, ...qs];
+        });
+        const poolExcludeIncorrect = allPool.filter(q => !incorrectIds.includes(q.id));
+        const shuffledPool = shuffleArray(poolExcludeIncorrect);
+        extraQuestions = shuffledPool.slice(0, extraCount);
+      }
+    }
+
+    const combined = [...incorrectQuestions, ...extraQuestions];
+    const uniqueCombined = Array.from(new Map(combined.map(q => [q.id, q])).values());
+
+    const finalQuestions = shuffleArray(uniqueCombined).map(q => ({
+      ...q,
+      options: shuffleArray(q.options)
+    }));
+
+    set({
+      state: 'IN_PROGRESS',
+      questions: finalQuestions,
+      currentIndex: 0,
+      answers: {},
+      startTime: Date.now(),
+      accumulatedTime: 0,
+      totalTime: null,
+      isPaused: false,
+      questionStartTime: Date.now(),
+      questionAccumulatedTime: 0,
+      questionTimes: {}
     });
   },
 
   pauseQuiz: () => {
-    const { startTime, accumulatedTime, isPaused } = get();
+    const { startTime, accumulatedTime, isPaused, questionStartTime, questionAccumulatedTime } = get();
     if (isPaused) return;
     const newAccumulated = accumulatedTime + (startTime ? Date.now() - startTime : 0);
+    const newQAccumulated = questionAccumulatedTime + (questionStartTime ? Date.now() - questionStartTime : 0);
+    
     set({
       isPaused: true,
       accumulatedTime: newAccumulated,
-      startTime: null
+      startTime: null,
+      questionAccumulatedTime: newQAccumulated,
+      questionStartTime: null
     });
   },
 
   resumeQuiz: () => {
     set({
       isPaused: false,
-      startTime: Date.now()
+      startTime: Date.now(),
+      questionStartTime: Date.now()
     });
   },
 
@@ -196,14 +317,30 @@ export const useQuizStore = create<QuizStore>((set, get) => ({
       startTime: null,
       accumulatedTime: 0,
       totalTime: null,
-      isPaused: false
+      isPaused: false,
+      questionStartTime: null,
+      questionAccumulatedTime: 0,
+      questionTimes: {}
     });
   },
 
   submitQuizEarly: () => {
-    const { startTime, accumulatedTime } = get();
+    const state = get();
+    const { startTime, accumulatedTime, questionStartTime, questionAccumulatedTime, currentIndex, questions, questionTimes } = state;
     const finalTime = accumulatedTime + (startTime ? Date.now() - startTime : 0);
-    set({ state: 'COMPLETED', totalTime: finalTime, startTime: null });
+    
+    // Save the time of the current question when submitting early
+    const currentQTime = questionAccumulatedTime + (questionStartTime ? Date.now() - questionStartTime : 0);
+    const currentQId = questions[currentIndex].id;
+    const newQuestionTimes = { ...questionTimes, [currentQId]: currentQTime };
+
+    set({ 
+      state: 'COMPLETED', 
+      totalTime: finalTime, 
+      startTime: null,
+      questionTimes: newQuestionTimes,
+      questionStartTime: null
+    });
   },
 
   resetApp: () => {
@@ -215,7 +352,10 @@ export const useQuizStore = create<QuizStore>((set, get) => ({
       startTime: null,
       accumulatedTime: 0,
       totalTime: null,
-      isPaused: false
+      isPaused: false,
+      questionStartTime: null,
+      questionAccumulatedTime: 0,
+      questionTimes: {}
     });
   }
 }));
