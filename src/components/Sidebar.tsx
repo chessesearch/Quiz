@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { useQuizStore } from "@/store/quizStore";
 import { parseFile } from "@/lib/parser";
 import SourceAllocation from "./SourceAllocation";
@@ -23,6 +23,13 @@ export default function Sidebar() {
   const [isUploading, setIsUploading] = useState(false);
 
   const totalAvailable = localSources.filter(s => s.active && s.isValid).reduce((acc, curr) => acc + curr.questionsCount, 0);
+
+  // Auto-clamp custom question count if totalAvailable changes
+  useEffect(() => {
+    if (localCustomCount > totalAvailable && totalAvailable > 0) {
+      setLocalCustomCount(totalAvailable);
+    }
+  }, [totalAvailable, localCustomCount]);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -172,8 +179,23 @@ export default function Sidebar() {
                   min={1}
                   max={totalAvailable || 1}
                   disabled={localCountMode !== 'CUSTOM'}
-                  value={localCustomCount}
-                  onChange={(e) => setLocalCustomCount(parseInt(e.target.value) || 1)}
+                  value={localCustomCount === 0 ? '' : localCustomCount}
+                  onChange={(e) => {
+                    const valStr = e.target.value;
+                    if (valStr === '') {
+                      setLocalCustomCount(0);
+                      return;
+                    }
+                    let val = parseInt(valStr);
+                    if (isNaN(val)) val = 0;
+                    val = Math.max(0, Math.min(val, totalAvailable));
+                    setLocalCustomCount(val);
+                  }}
+                  onBlur={() => {
+                    if (localCustomCount < 1) {
+                      setLocalCustomCount(Math.min(1, totalAvailable));
+                    }
+                  }}
                   className="w-20 px-2 py-1 text-sm border border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:bg-slate-50 dark:disabled:bg-slate-900/50"
                 />
               </div>

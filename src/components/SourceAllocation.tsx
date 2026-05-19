@@ -175,6 +175,7 @@ export default function SourceAllocation({ sources, totalQuestions, allocations,
 
   const handleInputChange = (sourceId: string, value: string) => {
     let newVal = parseInt(value);
+    if (value === "") newVal = 0;
     if (isNaN(newVal)) return;
     
     const source = activeSources.find(s => s.id === sourceId);
@@ -337,7 +338,8 @@ export default function SourceAllocation({ sources, totalQuestions, allocations,
                   type="number"
                   min={0}
                   max={source.questionsCount}
-                  value={alloc}
+                  value={alloc === 0 ? "" : alloc}
+                  placeholder="0"
                   onChange={(e) => handleInputChange(source.id, e.target.value)}
                   className="w-16 px-2 py-1.5 text-sm font-bold text-center border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
