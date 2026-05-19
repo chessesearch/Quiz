@@ -40,7 +40,7 @@ const StartScreen = memo(function StartScreen() {
         <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 dark:text-slate-100 mb-3 md:mb-4 tracking-tight">Chuẩn bị làm bài</h1>
         
         <p className="text-sm md:text-base text-slate-500 dark:text-slate-400 mb-8 leading-relaxed">
-          Vui lòng chọn các nguồn dữ liệu phần cài đặt. Hệ thống sẽ trộn các câu hỏi và lựa chọn để bắt đầu.
+          Vui lòng chọn các nguồn dữ liệu ở phần cài đặt. Hệ thống sẽ trộn các câu hỏi và lựa chọn để bắt đầu.
         </p>
 
         <div className="bg-slate-50 dark:bg-slate-900/50 rounded-2xl p-4 md:p-5 mb-8 flex justify-around">
