@@ -1,11 +1,16 @@
 "use client";
 
+import { memo } from "react";
 import { useQuizStore } from "@/store/quizStore";
 import { Play, Settings } from "lucide-react";
 import { motion } from "framer-motion";
 
-export default function StartScreen() {
-  const { sources, startQuiz, setSettingsOpen, questionCountMode, customQuestionCount } = useQuizStore();
+const StartScreen = memo(function StartScreen() {
+  const sources = useQuizStore(state => state.sources);
+  const startQuiz = useQuizStore(state => state.startQuiz);
+  const setSettingsOpen = useQuizStore(state => state.setSettingsOpen);
+  const questionCountMode = useQuizStore(state => state.questionCountMode);
+  const customQuestionCount = useQuizStore(state => state.customQuestionCount);
   const activeSources = sources.filter(s => s.active && s.isValid);
   const totalAvailable = activeSources.reduce((acc, curr) => acc + curr.questionsCount, 0);
   
@@ -35,7 +40,7 @@ export default function StartScreen() {
         <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 dark:text-slate-100 mb-3 md:mb-4 tracking-tight">Chuẩn bị làm bài</h1>
         
         <p className="text-sm md:text-base text-slate-500 dark:text-slate-400 mb-8 leading-relaxed">
-          Vui lòng chọn các nguồn dữ liệu ở cột cài đặt. Hệ thống sẽ trộn các câu hỏi và lựa chọn để bắt đầu.
+          Vui lòng chọn các nguồn dữ liệu phần cài đặt. Hệ thống sẽ trộn các câu hỏi và lựa chọn để bắt đầu.
         </p>
 
         <div className="bg-slate-50 dark:bg-slate-900/50 rounded-2xl p-4 md:p-5 mb-8 flex justify-around">
@@ -60,4 +65,6 @@ export default function StartScreen() {
       </motion.div>
     </div>
   );
-}
+});
+
+export default StartScreen;

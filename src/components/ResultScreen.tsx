@@ -1,13 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useState, memo } from "react";
 import { useQuizStore } from "@/store/quizStore";
 import { CheckCircle2, XCircle, RotateCcw, Clock, Target, AlertTriangle, PlayCircle, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 
-export default function ResultScreen() {
-  const { questions, answers, totalTime, retryQuiz, resetApp, questionTimes, retryIncorrectQuestions } = useQuizStore();
+const ResultScreen = memo(function ResultScreen() {
+  const questions = useQuizStore(state => state.questions);
+  const answers = useQuizStore(state => state.answers);
+  const totalTime = useQuizStore(state => state.totalTime);
+  const retryQuiz = useQuizStore(state => state.retryQuiz);
+  const resetApp = useQuizStore(state => state.resetApp);
+  const questionTimes = useQuizStore(state => state.questionTimes);
+  const retryIncorrectQuestions = useQuizStore(state => state.retryIncorrectQuestions);
   const [isRetryModalOpen, setIsRetryModalOpen] = useState(false);
   const [addExtra, setAddExtra] = useState(false);
   const [extraCount, setExtraCount] = useState<number>(10);
@@ -522,4 +528,6 @@ export default function ResultScreen() {
       </AnimatePresence>
     </div>
   );
-}
+});
+
+export default ResultScreen;

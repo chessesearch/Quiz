@@ -8,15 +8,17 @@ import { Plus, Trash2, FileText, FileWarning, Sun, Moon, X } from "lucide-react"
 import { cn } from "@/lib/utils";
 
 export default function Sidebar() {
-  const store = useQuizStore();
+  const theme = useQuizStore(state => state.theme);
+  const setTheme = useQuizStore(state => state.setTheme);
+  const setSettingsOpen = useQuizStore(state => state.setSettingsOpen);
 
-  // Local state for settings, initialized from the store on mount
-  const [localShowResult, setLocalShowResult] = useState(store.showResultAfterQuestion);
-  const [localAutoNext, setLocalAutoNext] = useState(store.autoNext);
-  const [localCountMode, setLocalCountMode] = useState(store.questionCountMode);
-  const [localCustomCount, setLocalCustomCount] = useState(store.customQuestionCount);
-  const [localAllocations, setLocalAllocations] = useState(store.sourceAllocations);
-  const [localSources, setLocalSources] = useState(store.sources);
+  // Local state for settings, initialized from the store on mount using getState to avoid unnecessary component subscriptions
+  const [localShowResult, setLocalShowResult] = useState(() => useQuizStore.getState().showResultAfterQuestion);
+  const [localAutoNext, setLocalAutoNext] = useState(() => useQuizStore.getState().autoNext);
+  const [localCountMode, setLocalCountMode] = useState(() => useQuizStore.getState().questionCountMode);
+  const [localCustomCount, setLocalCustomCount] = useState(() => useQuizStore.getState().customQuestionCount);
+  const [localAllocations, setLocalAllocations] = useState(() => useQuizStore.getState().sourceAllocations);
+  const [localSources, setLocalSources] = useState(() => useQuizStore.getState().sources);
   const [isSaved, setIsSaved] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -89,13 +91,13 @@ export default function Sidebar() {
           <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">Cài đặt</h2>
           <div className="flex items-center gap-2">
             <button 
-              onClick={() => store.setTheme(store.theme === 'dark' ? 'light' : 'dark')} 
+              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} 
               className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-colors"
             >
-              {store.theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+              {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
             </button>
             <button 
-              onClick={() => store.setSettingsOpen(false)} 
+              onClick={() => setSettingsOpen(false)} 
               className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-colors"
             >
               <X className="w-5 h-5" />
@@ -301,7 +303,7 @@ export default function Sidebar() {
       {/* Fixed Footer with Cancel and Save Buttons */}
       <div className="p-4 border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shrink-0 flex gap-3 z-20">
         <button
-          onClick={() => store.setSettingsOpen(false)}
+          onClick={() => setSettingsOpen(false)}
           className="flex-1 py-3 px-4 rounded-xl font-bold text-slate-700 dark:text-slate-300 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 transition-all active:scale-[0.98] text-sm"
         >
           Hủy
@@ -315,7 +317,7 @@ export default function Sidebar() {
               : "bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600"
           )}
         >
-          {isSaved ? "Đã lưu!" : "Save"}
+          {isSaved ? "Đã lưu!" : "Lưu"}
         </button>
       </div>
     </div>

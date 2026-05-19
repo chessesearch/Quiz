@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, memo } from "react";
 import { useQuizStore } from "@/store/quizStore";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { Clock, Pause, Play, LogOut, CheckSquare } from "lucide-react";
 
-const Timer = () => {
+const Timer = memo(() => {
   const startTime = useQuizStore(state => state.startTime);
   const isPaused = useQuizStore(state => state.isPaused);
   const accumulatedTime = useQuizStore(state => state.accumulatedTime);
@@ -33,23 +33,21 @@ const Timer = () => {
   };
 
   return <>{formatTime(elapsedTime)}</>;
-};
+});
 
-export default function MainQuiz() {
-  const {
-    questions,
-    currentIndex,
-    answers,
-    submitAnswer,
-    nextQuestion,
-    showResultAfterQuestion,
-    autoNext,
-    isPaused,
-    pauseQuiz,
-    resumeQuiz,
-    exitQuiz,
-    submitQuizEarly
-  } = useQuizStore();
+const MainQuiz = memo(function MainQuiz() {
+  const questions = useQuizStore(state => state.questions);
+  const currentIndex = useQuizStore(state => state.currentIndex);
+  const answers = useQuizStore(state => state.answers);
+  const submitAnswer = useQuizStore(state => state.submitAnswer);
+  const nextQuestion = useQuizStore(state => state.nextQuestion);
+  const showResultAfterQuestion = useQuizStore(state => state.showResultAfterQuestion);
+  const autoNext = useQuizStore(state => state.autoNext);
+  const isPaused = useQuizStore(state => state.isPaused);
+  const pauseQuiz = useQuizStore(state => state.pauseQuiz);
+  const resumeQuiz = useQuizStore(state => state.resumeQuiz);
+  const exitQuiz = useQuizStore(state => state.exitQuiz);
+  const submitQuizEarly = useQuizStore(state => state.submitQuizEarly);
 
   const [selectedOptionId, setSelectedOptionId] = useState<string | null>(null);
   const [showFeedback, setShowFeedback] = useState(false);
@@ -363,4 +361,6 @@ export default function MainQuiz() {
       </div>
     </div>
   );
-}
+});
+
+export default MainQuiz;
