@@ -21,6 +21,16 @@ export default function Sidebar() {
   const [localSources, setLocalSources] = useState(() => useQuizStore.getState().sources);
   const [isSaved, setIsSaved] = useState(false);
 
+  const [editingSourceIds, setEditingSourceIds] = useState<Record<string, boolean>>({});
+
+  const toggleEditing = (id: string) => {
+    setEditingSourceIds(prev => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const updateLocalCustomName = (id: string, name: string) => {
+    setLocalSources(prev => prev.map(s => s.id === id ? { ...s, customName: name || undefined } : s));
+  };
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
 
@@ -269,16 +279,57 @@ export default function Sidebar() {
                 </div>
                 
                 <div className="flex-1 min-w-0">
-                  <div className="flex justify-between items-start gap-2">
-                    <h3 className="font-semibold text-sm truncate text-slate-800 dark:text-slate-200" title={source.name}>
-                      {source.name}
-                    </h3>
-                    <button
-                      onClick={() => removeLocalSource(source.id)}
-                      className="text-slate-400 hover:text-red-500 dark:hover:text-red-400 shrink-0"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                  <div className="flex justify-between items-start gap-2 mb-1">
+                    <div className="flex-1 min-w-0">
+                      {editingSourceIds[source.id] ? (
+                        <input
+                          type="text"
+                          placeholder="Đặt tên nguồn dữ liệu..."
+                          value={source.customName || ""}
+                          onChange={(e) => updateLocalCustomName(source.id, e.target.value)}
+                          onBlur={() => {
+                            setEditingSourceIds(prev => ({ ...prev, [source.id]: false }));
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              setEditingSourceIds(prev => ({ ...prev, [source.id]: false }));
+                            }
+                          }}
+                          className="w-full px-2 py-1 text-sm font-bold border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500 mb-1"
+                          autoFocus
+                        />
+                      ) : source.customName ? (
+                        <h4 className="font-extrabold text-sm text-slate-900 dark:text-slate-100 leading-snug">
+                          {source.customName}
+                        </h4>
+                      ) : null}
+
+                      {/* Original file name */}
+                      {(!editingSourceIds[source.id] && !source.customName) ? (
+                        <h3 className="font-semibold text-sm truncate text-slate-800 dark:text-slate-200" title={source.name}>
+                          {source.name}
+                        </h3>
+                      ) : (
+                        <p className="text-[11px] text-slate-400 dark:text-slate-500 font-medium truncate" title={source.name}>
+                          {source.name}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-2.5 shrink-0">
+                      <button
+                        onClick={() => toggleEditing(source.id)}
+                        className="text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 text-xs font-semibold select-none"
+                      >
+                        Đặt tên
+                      </button>
+                      <button
+                        onClick={() => removeLocalSource(source.id)}
+                        className="text-slate-400 hover:text-red-500 dark:hover:text-red-400 select-none shrink-0"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                   
                   {source.isValid ? (

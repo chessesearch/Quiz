@@ -326,8 +326,8 @@ export default function SourceAllocation({ sources, totalQuestions, allocations,
             <div key={source.id} className="flex items-center gap-3 bg-white dark:bg-slate-800 p-2.5 rounded-xl border border-slate-100 dark:border-slate-700/50 shadow-sm transition-colors hover:border-slate-300 dark:hover:border-slate-600">
               <div className={cn("w-4 h-4 rounded-md shrink-0 shadow-sm", color.bg)} />
               <div className="flex-1 min-w-0">
-                <div className="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate" title={source.name}>
-                  {source.name}
+                <div className="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate" title={source.customName || source.name}>
+                  {source.customName || source.name}
                 </div>
                 <div className="text-[10px] text-slate-500">Tối đa {source.questionsCount} câu</div>
               </div>

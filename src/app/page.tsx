@@ -22,6 +22,59 @@ export default function Home() {
     }
   }, [theme]);
 
+  // Load settings and sources from localStorage on mount (client-side only to prevent SSR mismatch)
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const savedSources = localStorage.getItem("vapas_quiz_sources");
+      const savedSettings = localStorage.getItem("vapas_quiz_settings");
+      if (savedSources) {
+        try {
+          const parsed = JSON.parse(savedSources);
+          useQuizStore.setState({ sources: parsed });
+        } catch (e) {
+          console.error("Error loading sources:", e);
+        }
+      }
+      if (savedSettings) {
+        try {
+          const parsed = JSON.parse(savedSettings);
+          useQuizStore.setState(parsed);
+        } catch (e) {
+          console.error("Error loading settings:", e);
+        }
+      }
+    }
+  }, []);
+
+  // Save settings and sources to localStorage when they change, ignoring timer ticks
+  useEffect(() => {
+    let lastSourcesStr = "";
+    let lastSettingsStr = "";
+    
+    const unsub = useQuizStore.subscribe((state) => {
+      const sourcesStr = JSON.stringify(state.sources);
+      const settingsObj = {
+        showResultAfterQuestion: state.showResultAfterQuestion,
+        autoNext: state.autoNext,
+        questionCountMode: state.questionCountMode,
+        customQuestionCount: state.customQuestionCount,
+        sourceAllocations: state.sourceAllocations,
+        theme: state.theme,
+      };
+      const settingsStr = JSON.stringify(settingsObj);
+      
+      if (sourcesStr !== lastSourcesStr) {
+        localStorage.setItem("vapas_quiz_sources", sourcesStr);
+        lastSourcesStr = sourcesStr;
+      }
+      if (settingsStr !== lastSettingsStr) {
+        localStorage.setItem("vapas_quiz_settings", settingsStr);
+        lastSettingsStr = settingsStr;
+      }
+    });
+    return unsub;
+  }, []);
+
   // We use suppressHydrationWarning in layout.tsx to handle mismatches
 
   return (

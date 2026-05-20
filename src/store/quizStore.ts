@@ -9,6 +9,7 @@ export interface SourceFile {
   questions: Question[];
   isValid: boolean;
   error?: string;
+  customName?: string;
 }
 
 export type QuizState = 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED';
@@ -131,7 +132,7 @@ export const useQuizStore = create<QuizStore>((set, get) => ({
         activeSources.forEach(source => {
           const alloc = sourceAllocations[source.id] || 0;
           if (alloc > 0) {
-            const qs = source.questions.map(q => ({ ...q, sourceId: source.id, sourceName: source.name }));
+            const qs = source.questions.map(q => ({ ...q, sourceId: source.id, sourceName: source.customName || source.name }));
             const shuffledQs = shuffleArray(qs).slice(0, alloc);
             combinedQuestions = [...combinedQuestions, ...shuffledQs];
           }
@@ -139,13 +140,13 @@ export const useQuizStore = create<QuizStore>((set, get) => ({
       } else {
         // Fallback if allocations are broken
         activeSources.forEach(source => {
-          const withSource = source.questions.map(q => ({ ...q, sourceId: source.id, sourceName: source.name }));
+          const withSource = source.questions.map(q => ({ ...q, sourceId: source.id, sourceName: source.customName || source.name }));
           combinedQuestions = [...combinedQuestions, ...withSource];
         });
       }
     } else {
       activeSources.forEach(source => {
-        const withSource = source.questions.map(q => ({ ...q, sourceId: source.id, sourceName: source.name }));
+        const withSource = source.questions.map(q => ({ ...q, sourceId: source.id, sourceName: source.customName || source.name }));
         combinedQuestions = [...combinedQuestions, ...withSource];
       });
     }
