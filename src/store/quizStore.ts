@@ -75,8 +75,8 @@ function shuffleArray<T>(array: T[]): T[] {
 }
 
 export const useQuizStore = create<QuizStore>((set, get) => ({
-  showResultAfterQuestion: false,
-  autoNext: true,
+  showResultAfterQuestion: true,
+  autoNext: false,
   setShowResultAfterQuestion: (val) => set({ showResultAfterQuestion: val }),
   setAutoNext: (val) => set({ autoNext: val }),
   questionCountMode: 'ALL',

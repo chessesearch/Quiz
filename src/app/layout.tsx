@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Ứng dụng trắc nghiệm",
+  title: "Vapas Quiz",
   description: "Làm bài kiểm tra trắc nghiệm từ tệp Word hoặc Text",
 };
 
