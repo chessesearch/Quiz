@@ -45,13 +45,13 @@ const CodeBlock = memo(({ content }: { content: string }) => {
   const highlightedLines = highlightCode(content);
 
   return (
-    <div className="my-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/80 font-mono text-xs md:text-sm overflow-hidden transition-colors duration-300 shadow-inner">
-      <div className="flex items-center justify-between px-4 py-2 border-b border-slate-200 dark:border-slate-700/50 bg-slate-100/50 dark:bg-slate-900/50 text-[10px] md:text-xs font-sans text-slate-400 select-none">
+    <div className="my-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/80 font-mono text-xs md:text-sm overflow-hidden transition-colors duration-300 shadow-inner flex flex-col max-h-[320px] md:max-h-[450px]">
+      <div className="flex items-center justify-between px-4 py-2 border-b border-slate-200 dark:border-slate-700/50 bg-slate-100/50 dark:bg-slate-900/50 text-[10px] md:text-xs font-sans text-slate-400 select-none shrink-0">
         <span>Code Block</span>
         <span className="text-[9px] uppercase tracking-wider bg-slate-200 dark:bg-slate-800 px-1.5 py-0.5 rounded font-semibold">Read Only</span>
       </div>
-      <div className="overflow-x-auto p-4 flex">
-        <div className="text-right text-slate-450 select-none pr-4 border-r border-slate-200 dark:border-slate-700/50 mr-4 font-mono text-xs md:text-sm">
+      <div className="overflow-auto p-4 flex flex-1">
+        <div className="text-right text-slate-450 select-none pr-4 border-r border-slate-200 dark:border-slate-700/50 mr-4 font-mono text-xs md:text-sm shrink-0">
           {lines.map((_, i) => (
             <div key={i} className="leading-relaxed h-5">{i + 1}</div>
           ))}
@@ -163,8 +163,12 @@ const MainQuiz = memo(function MainQuiz() {
           nextQuestion();
         }
       } else {
-        setShowFeedback(true);
-        setIsInputLocked(false); // Allow manual next
+        if (showResultAfterQuestion) {
+          setShowFeedback(true);
+          setIsInputLocked(false); // Allow manual next
+        } else {
+          nextQuestion();
+        }
       }
     }
   }, [showFeedback, isInputLocked, autoNext, submitAnswer, question, showResultAfterQuestion, nextQuestion]);
@@ -201,9 +205,13 @@ const MainQuiz = memo(function MainQuiz() {
           }
         }
       } else {
-        // Incorrect answer: always pause and display explanation/manual next
-        setShowFeedback(true);
-        setIsInputLocked(false); // Allow manual next
+        // Incorrect answer
+        if (showResultAfterQuestion) {
+          setShowFeedback(true);
+          setIsInputLocked(false); // Allow manual next
+        } else {
+          nextQuestion();
+        }
       }
     } else {
       setIsInputLocked(true);
@@ -383,7 +391,7 @@ const MainQuiz = memo(function MainQuiz() {
       )}
 
       <div className="flex-1 overflow-y-auto px-4 md:px-8 pt-6 pb-20 md:pt-10 md:pb-32 flex justify-center">
-        <div className="max-w-3xl w-full">
+        <div className="max-w-3xl w-full pb-10 md:pb-16">
           <AnimatePresence mode="wait">
             <motion.div
               key={question.id}
