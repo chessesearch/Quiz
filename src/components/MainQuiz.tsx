@@ -4,7 +4,68 @@ import { useEffect, useState, useCallback, memo } from "react";
 import { useQuizStore } from "@/store/quizStore";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
-import { Clock, Pause, Play, LogOut, CheckSquare } from "lucide-react";
+import { Clock, Pause, Play, LogOut, CheckSquare, AlertTriangle } from "lucide-react";
+import { isQuestionCorrect } from "@/lib/parser";
+
+import Prism from "prismjs";
+import "prismjs/components/prism-python";
+import "prismjs/components/prism-javascript";
+import "prismjs/components/prism-typescript";
+import "prismjs/themes/prism-tomorrow.css";
+
+function detectLanguage(code: string): string {
+  const pythonKeywords = ["def ", "elif ", "import math", "print(", "len(", "range("];
+  const jsKeywords = ["const ", "let ", "var ", "function ", "console.log", "=>"];
+  
+  let pyCount = 0;
+  let jsCount = 0;
+  
+  pythonKeywords.forEach(k => {
+    if (code.includes(k)) pyCount++;
+  });
+  jsKeywords.forEach(k => {
+    if (code.includes(k)) jsCount++;
+  });
+  
+  return pyCount >= jsCount ? "python" : "javascript";
+}
+
+function highlightCode(content: string): string[] {
+  const lang = detectLanguage(content);
+  const grammar = Prism.languages[lang] || Prism.languages.javascript;
+  
+  return content.split("\n").map(line => {
+    if (!line) return "";
+    return Prism.highlight(line, grammar, lang);
+  });
+}
+
+const CodeBlock = memo(({ content }: { content: string }) => {
+  const lines = content.split('\n');
+  const highlightedLines = highlightCode(content);
+
+  return (
+    <div className="my-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/80 font-mono text-xs md:text-sm overflow-hidden transition-colors duration-300 shadow-inner">
+      <div className="flex items-center justify-between px-4 py-2 border-b border-slate-200 dark:border-slate-700/50 bg-slate-100/50 dark:bg-slate-900/50 text-[10px] md:text-xs font-sans text-slate-400 select-none">
+        <span>Code Block</span>
+        <span className="text-[9px] uppercase tracking-wider bg-slate-200 dark:bg-slate-800 px-1.5 py-0.5 rounded font-semibold">Read Only</span>
+      </div>
+      <div className="overflow-x-auto p-4 flex">
+        <div className="text-right text-slate-450 select-none pr-4 border-r border-slate-200 dark:border-slate-700/50 mr-4 font-mono text-xs md:text-sm">
+          {lines.map((_, i) => (
+            <div key={i} className="leading-relaxed h-5">{i + 1}</div>
+          ))}
+        </div>
+        <pre className="flex-1 text-slate-800 dark:text-slate-200 leading-relaxed font-mono text-xs md:text-sm overflow-visible whitespace-pre" style={{ tabSize: 4 }}>
+          {highlightedLines.map((line, i) => (
+            <div key={i} className="h-5" dangerouslySetInnerHTML={{ __html: line || ' ' }} />
+          ))}
+        </pre>
+      </div>
+    </div>
+  );
+});
+CodeBlock.displayName = "CodeBlock";
 
 const Timer = memo(() => {
   const startTime = useQuizStore(state => state.startTime);
@@ -34,6 +95,7 @@ const Timer = memo(() => {
 
   return <>{formatTime(elapsedTime)}</>;
 });
+Timer.displayName = "Timer";
 
 const MainQuiz = memo(function MainQuiz() {
   const questions = useQuizStore(state => state.questions);
@@ -50,6 +112,7 @@ const MainQuiz = memo(function MainQuiz() {
   const submitQuizEarly = useQuizStore(state => state.submitQuizEarly);
 
   const [selectedOptionId, setSelectedOptionId] = useState<string | null>(null);
+  const [selectedOptionIds, setSelectedOptionIds] = useState<string[]>([]);
   const [showFeedback, setShowFeedback] = useState(false);
   const [isInputLocked, setIsInputLocked] = useState(false);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
@@ -59,9 +122,13 @@ const MainQuiz = memo(function MainQuiz() {
   const total = questions.length;
   const progress = ((currentIndex) / total) * 100;
 
+  const currentAnswer = question ? (question.type === "multiple_choice" ? selectedOptionIds : (selectedOptionId ? [selectedOptionId] : [])) : [];
+  const isCorrect = question ? isQuestionCorrect(question, currentAnswer) : false;
+
   useEffect(() => {
     // Reset local state when question changes
     setSelectedOptionId(null);
+    setSelectedOptionIds([]);
     setShowFeedback(false);
     setIsInputLocked(false);
   }, [currentIndex]);
@@ -69,44 +136,80 @@ const MainQuiz = memo(function MainQuiz() {
   const handleSelectOption = useCallback((optionId: string) => {
     if (showFeedback || isInputLocked) return; // Prevent selection when feedback is showing or locked
 
+    if (question.type === "multiple_choice") {
+      setSelectedOptionIds(prev => {
+        const next = prev.includes(optionId) 
+          ? prev.filter(id => id !== optionId) 
+          : [...prev, optionId];
+        return next;
+      });
+      return;
+    }
+
     setSelectedOptionId(optionId);
 
     if (autoNext) {
       setIsInputLocked(true);
-      submitAnswer(question.id, optionId);
-      if (showResultAfterQuestion) {
-        setShowFeedback(true);
-        setTimeout(() => {
+      submitAnswer(question.id, [optionId]);
+      const isCorrectNow = isQuestionCorrect(question, [optionId]);
+      
+      if (isCorrectNow) {
+        if (showResultAfterQuestion) {
+          setShowFeedback(true);
+          setTimeout(() => {
+            nextQuestion();
+          }, 1000); // 1s delay to show feedback highlighting
+        } else {
           nextQuestion();
-        }, 1500); // Wait 1.5s to show feedback
+        }
       } else {
-        setTimeout(() => {
-          nextQuestion();
-        }, 250); // Delay moving to let selection animation be visible and prevent spamming
+        setShowFeedback(true);
+        setIsInputLocked(false); // Allow manual next
       }
     }
-  }, [showFeedback, isInputLocked, autoNext, submitAnswer, question.id, showResultAfterQuestion, nextQuestion]);
+  }, [showFeedback, isInputLocked, autoNext, submitAnswer, question, showResultAfterQuestion, nextQuestion]);
 
   const handleEnter = useCallback(() => {
-    if (!selectedOptionId || isInputLocked) return;
-    if (autoNext) return; // Already handled on click
+    const isMultiple = question.type === "multiple_choice";
+    const currentAnswer = isMultiple ? selectedOptionIds : (selectedOptionId ? [selectedOptionId] : []);
+    const hasSelection = currentAnswer.length > 0;
+
+    if (!hasSelection || isInputLocked) return;
+    if (!showFeedback && autoNext && !isMultiple) return; // Already handled on click
 
     if (!showFeedback) {
       setIsInputLocked(true);
-      submitAnswer(question.id, selectedOptionId);
-      if (showResultAfterQuestion) {
-        setShowFeedback(true);
-        setTimeout(() => {
-          setIsInputLocked(false);
-        }, 300); // Allow next input confirmation after a short delay
+      submitAnswer(question.id, currentAnswer);
+      const isCorrectNow = isQuestionCorrect(question, currentAnswer);
+
+      if (isCorrectNow) {
+        if (autoNext) {
+          if (showResultAfterQuestion) {
+            setShowFeedback(true);
+            setTimeout(() => {
+              nextQuestion();
+            }, 1000); // 1s delay to show feedback highlighting
+          } else {
+            nextQuestion();
+          }
+        } else {
+          if (showResultAfterQuestion) {
+            setShowFeedback(true);
+            setIsInputLocked(false); // Allow manual next
+          } else {
+            nextQuestion();
+          }
+        }
       } else {
-        nextQuestion();
+        // Incorrect answer: always pause and display explanation/manual next
+        setShowFeedback(true);
+        setIsInputLocked(false); // Allow manual next
       }
     } else {
       setIsInputLocked(true);
       nextQuestion();
     }
-  }, [selectedOptionId, autoNext, showFeedback, submitAnswer, question.id, showResultAfterQuestion, nextQuestion, isInputLocked]);
+  }, [selectedOptionId, selectedOptionIds, autoNext, showFeedback, submitAnswer, question, showResultAfterQuestion, nextQuestion, isInputLocked]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -123,19 +226,21 @@ const MainQuiz = memo(function MainQuiz() {
           handleSelectOption(question.options[letterIndex].id);
         } else if (e.key === "ArrowDown" || e.key === "ArrowUp") {
            e.preventDefault();
-           const currentIdx = question.options.findIndex(opt => opt.id === selectedOptionId);
-           let newIdx = 0;
-           if (currentIdx !== -1) {
-              if (e.key === "ArrowDown") newIdx = (currentIdx + 1) % question.options.length;
-              if (e.key === "ArrowUp") newIdx = (currentIdx - 1 + question.options.length) % question.options.length;
+           if (question.type !== "multiple_choice") {
+             const currentIdx = question.options.findIndex(opt => opt.id === selectedOptionId);
+             let newIdx = 0;
+             if (currentIdx !== -1) {
+                if (e.key === "ArrowDown") newIdx = (currentIdx + 1) % question.options.length;
+                if (e.key === "ArrowUp") newIdx = (currentIdx - 1 + question.options.length) % question.options.length;
+             }
+             setSelectedOptionId(question.options[newIdx].id);
            }
-           setSelectedOptionId(question.options[newIdx].id);
         }
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [handleEnter, showFeedback, question, handleSelectOption, selectedOptionId, isPaused, isInputLocked, showExitConfirm, showSubmitConfirm]);
+  }, [handleEnter, showFeedback, question, handleSelectOption, selectedOptionId, selectedOptionIds, isPaused, isInputLocked, showExitConfirm, showSubmitConfirm]);
 
   if (!question) return null;
 
@@ -277,7 +382,7 @@ const MainQuiz = memo(function MainQuiz() {
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto px-4 md:px-8 py-8 md:py-12 flex justify-center">
+      <div className="flex-1 overflow-y-auto px-4 md:px-8 pt-6 pb-20 md:pt-10 md:pb-32 flex justify-center">
         <div className="max-w-3xl w-full">
           <AnimatePresence mode="wait">
             <motion.div
@@ -291,21 +396,28 @@ const MainQuiz = memo(function MainQuiz() {
                 {question.text}
               </h2>
 
+              {question.display_block && question.display_block.type === 'code' && (
+                <CodeBlock content={question.display_block.content} />
+              )}
+
               <div className="space-y-3 md:space-y-4">
                 {question.options.map((option, idx) => {
-                  const isSelected = selectedOptionId === option.id;
-                  const isCorrect = option.id === question.correctOptionId;
+                  const isSelected = question.type === "multiple_choice"
+                    ? selectedOptionIds.includes(option.id)
+                    : selectedOptionId === option.id;
+                  
+                  const isOptionCorrect = question.correctOptionIds.includes(option.id);
                   
                   let stateClass = "border-slate-200 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-500 hover:bg-indigo-50/50 dark:hover:bg-indigo-900/20 bg-white dark:bg-slate-800";
                   let textClass = "text-slate-700 dark:text-slate-300";
-                  let letterClass = "bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400";
+                  let letterClass = "bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-450";
 
                   if (showFeedback) {
-                    if (isCorrect) {
+                    if (isOptionCorrect) {
                       stateClass = "border-green-500 bg-green-50 dark:bg-green-900/20 shadow-[0_0_0_2px_rgba(34,197,94,0.2)]";
                       textClass = "text-green-800 dark:text-green-400 font-medium";
                       letterClass = "bg-green-500 text-white";
-                    } else if (isSelected && !isCorrect) {
+                    } else if (isSelected && !isOptionCorrect) {
                       stateClass = "border-red-500 bg-red-50 dark:bg-red-900/20 shadow-[0_0_0_2px_rgba(239,68,68,0.2)]";
                       textClass = "text-red-800 dark:text-red-400 font-medium";
                       letterClass = "bg-red-500 text-white";
@@ -343,14 +455,28 @@ const MainQuiz = memo(function MainQuiz() {
                 })}
               </div>
 
-              {!autoNext && (
-                <div className="mt-6 md:mt-8 flex justify-end">
+              {showFeedback && !isCorrect && question.explanation && (
+                <motion.div 
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mt-6 p-4 rounded-xl border border-amber-200 dark:border-amber-900/50 bg-amber-50/50 dark:bg-amber-950/20 text-amber-800 dark:text-amber-300 text-sm leading-relaxed flex gap-3"
+                >
+                  <AlertTriangle className="w-5 h-5 shrink-0 text-amber-500 mt-0.5" />
+                  <div>
+                    <div className="font-bold text-xs uppercase tracking-wider text-amber-600 dark:text-amber-400 mb-1">Giải thích</div>
+                    <div className="whitespace-pre-wrap">{question.explanation}</div>
+                  </div>
+                </motion.div>
+              )}
+
+              {(!autoNext || (question.type === "multiple_choice" && !showFeedback) || (showFeedback && !isCorrect)) && (
+                <div className="mt-6 md:mt-8 pb-8 md:pb-12 flex justify-end">
                   <button
                     onClick={handleEnter}
-                    disabled={!selectedOptionId || isInputLocked}
-                    className="bg-slate-900 dark:bg-indigo-600 text-white px-6 md:px-8 py-3 md:py-4 rounded-xl font-medium transition-all hover:bg-slate-800 dark:hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg flex items-center gap-2 text-sm md:text-base"
+                    disabled={(!showFeedback && (question.type === "multiple_choice" ? selectedOptionIds.length === 0 : !selectedOptionId)) || isInputLocked}
+                    className="bg-slate-900 dark:bg-indigo-600 text-white px-6 md:px-8 py-3 md:py-4 rounded-xl font-medium transition-all hover:bg-slate-800 dark:hover:bg-indigo-750 disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg flex items-center gap-2 text-sm md:text-base cursor-pointer"
                   >
-                    {showFeedback ? "Câu tiếp theo" : "Xác nhận"}
+                    {showFeedback ? "Câu tiếp theo" : (question.type === "multiple_choice" ? "Xác nhận đáp án" : "Xác nhận")}
                     <span className="text-slate-400 dark:text-indigo-200 text-xs md:text-sm font-normal ml-1 md:ml-2">↵ Enter</span>
                   </button>
                 </div>

@@ -44,7 +44,7 @@ export interface QuizStore {
   state: QuizState;
   questions: Question[]; // Combined and shuffled
   currentIndex: number;
-  answers: Record<string, string>; // questionId -> optionId
+  answers: Record<string, string[]>; // questionId -> optionIds
   startTime: number | null;
   accumulatedTime: number;
   totalTime: number | null;
@@ -59,7 +59,7 @@ export interface QuizStore {
   resumeQuiz: () => void;
   exitQuiz: () => void;
   submitQuizEarly: () => void;
-  submitAnswer: (questionId: string, optionId: string) => void;
+  submitAnswer: (questionId: string, optionIds: string[]) => void;
   nextQuestion: () => void;
   retryQuiz: () => void;
   retryIncorrectQuestions: (incorrectIds: string[], addExtra: boolean, extraCount: number, extraMode: 'TIME' | 'RANDOM') => void;
@@ -181,9 +181,9 @@ export const useQuizStore = create<QuizStore>((set, get) => ({
     });
   },
 
-  submitAnswer: (questionId, optionId) => {
+  submitAnswer: (questionId, optionIds) => {
     set((state) => ({
-      answers: { ...state.answers, [questionId]: optionId }
+      answers: { ...state.answers, [questionId]: optionIds }
     }));
   },
 
@@ -254,7 +254,7 @@ export const useQuizStore = create<QuizStore>((set, get) => ({
       } else {
         let allPool: Question[] = [];
         sources.filter(s => s.active && s.isValid).forEach(source => {
-           const qs = source.questions.map(q => ({ ...q, sourceId: source.id, sourceName: source.name }));
+           const qs = source.questions.map(q => ({ ...q, sourceId: source.id, sourceName: source.customName || source.name }));
            allPool = [...allPool, ...qs];
         });
         const poolExcludeIncorrect = allPool.filter(q => !incorrectIds.includes(q.id));

@@ -234,7 +234,7 @@ export default function Sidebar() {
               onClick={() => fileInputRef.current?.click()}
               disabled={isUploading}
               className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 flex items-center justify-center hover:bg-indigo-200 dark:hover:bg-indigo-900/80 transition-colors disabled:opacity-50 shadow-sm"
-              title="Tải lên tệp .docx, .txt"
+              title="Tải lên tệp .docx, .txt, .json"
             >
               <Plus className="w-5 h-5" />
             </button>
@@ -242,7 +242,7 @@ export default function Sidebar() {
               type="file"
               ref={fileInputRef}
               onChange={handleFileUpload}
-              accept=".txt,.docx"
+              accept=".txt,.docx,.json"
               multiple
               className="hidden"
             />
@@ -254,7 +254,7 @@ export default function Sidebar() {
           <div className="text-center py-8 text-slate-500 dark:text-slate-400 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl">
             <FileText className="w-8 h-8 mx-auto mb-2 text-slate-300 dark:text-slate-600" />
             <p className="text-sm">Chưa có tệp nào được tải lên.</p>
-            <p className="text-xs mt-1">Hỗ trợ .docx, .txt</p>
+            <p className="text-xs mt-1">Hỗ trợ .docx, .txt, .json</p>
           </div>
         ) : (
           <div className="space-y-3">

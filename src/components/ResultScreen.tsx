@@ -5,6 +5,16 @@ import { useQuizStore } from "@/store/quizStore";
 import { CheckCircle2, XCircle, RotateCcw, Clock, Target, AlertTriangle, PlayCircle, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { isQuestionCorrect } from "@/lib/parser";
+
+const renderOptionsText = (q: any, opts: any[]) => {
+  if (opts.length === 0) return "Chưa trả lời";
+  return opts.map(o => {
+    const idx = q.options.findIndex((x: any) => x.id === o.id);
+    const letter = idx !== -1 ? String.fromCharCode(65 + idx) : "";
+    return letter ? `${letter}. ${o.text}` : o.text;
+  }).join("; ");
+};
 
 const ResultScreen = memo(function ResultScreen() {
   const questions = useQuizStore(state => state.questions);
@@ -30,7 +40,7 @@ const ResultScreen = memo(function ResultScreen() {
   const incorrectQuestions: typeof questions = [];
 
   for (const q of questions) {
-    if (answers[q.id] === q.correctOptionId) {
+    if (isQuestionCorrect(q, answers[q.id])) {
       correctCount++;
     } else {
       incorrectQuestions.push(q);
@@ -142,7 +152,7 @@ const ResultScreen = memo(function ResultScreen() {
           let sourceTotalTimeMs = 0;
 
           sourceQuestions.forEach(q => {
-            if (answers[q.id] === q.correctOptionId) {
+            if (isQuestionCorrect(q, answers[q.id])) {
               sourceCorrectCount++;
             }
             sourceTotalTimeMs += (questionTimes[q.id] || 0);
@@ -184,7 +194,7 @@ const ResultScreen = memo(function ResultScreen() {
                       {sortedQuestions.map((q, idx) => {
                         const timeMs = questionTimes[q.id] || 0;
                         const heightPercent = Math.max((timeMs / maxTime) * 100, 2);
-                        const isCorrect = answers[q.id] === q.correctOptionId;
+                        const isCorrect = isQuestionCorrect(q, answers[q.id]);
                         const isSelected = selectedTooltipId === q.id;
                         const isAnySelected = selectedTooltipId !== null;
 
@@ -275,8 +285,10 @@ const ResultScreen = memo(function ResultScreen() {
 
             <div className="space-y-4">
               {incorrectQuestions.map((q, idx) => {
-                const selectedOption = q.options.find(o => o.id === answers[q.id]);
-                const correctOption = q.options.find(o => o.id === q.correctOptionId);
+                 const selectedOptionIds = answers[q.id] || [];
+                 const selectedOptions = q.options.filter(o => selectedOptionIds.includes(o.id));
+                 const correctOptionIds = q.correctOptionIds;
+                 const correctOptions = q.options.filter(o => correctOptionIds.includes(o.id));
 
                 return (
                   <div key={q.id} className="bg-white dark:bg-slate-800 rounded-2xl p-5 md:p-6 shadow-sm border border-slate-100 dark:border-slate-700 transition-colors duration-300">
@@ -286,12 +298,22 @@ const ResultScreen = memo(function ResultScreen() {
                     </div>
                     
                     <div className="space-y-3">
-                      {selectedOption ? (
+                      {selectedOptions.length > 0 ? (
                         <div className="flex items-start gap-3 p-3 bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-400 rounded-xl border border-red-100 dark:border-red-900/50">
                           <XCircle className="w-5 h-5 shrink-0 mt-0.5" />
-                          <div>
+                          <div className="flex-1 min-w-0">
                             <div className="text-[10px] md:text-xs font-bold uppercase tracking-wider text-red-500 mb-1">Bạn chọn</div>
-                            <div className="text-sm md:text-base">{selectedOption.text}</div>
+                            <div className="space-y-1">
+                              {selectedOptions.map(opt => {
+                                const optIdx = q.options.findIndex(o => o.id === opt.id);
+                                const letter = optIdx !== -1 ? String.fromCharCode(65 + optIdx) : '';
+                                return (
+                                  <div key={opt.id} className="text-sm md:text-base flex items-start gap-1">
+                                    {letter && <span className="font-semibold">{letter}.</span>} <span>{opt.text}</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
                           </div>
                         </div>
                       ) : (
@@ -304,16 +326,36 @@ const ResultScreen = memo(function ResultScreen() {
                         </div>
                       )}
                       
-                      {correctOption && (
+                      {correctOptions.length > 0 && (
                         <div className="flex items-start gap-3 p-3 bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-400 rounded-xl border border-green-100 dark:border-green-900/50">
                           <CheckCircle2 className="w-5 h-5 shrink-0 mt-0.5" />
-                          <div>
+                          <div className="flex-1 min-w-0">
                             <div className="text-[10px] md:text-xs font-bold uppercase tracking-wider text-green-600 dark:text-green-500 mb-1">Đáp án đúng</div>
-                            <div className="text-sm md:text-base">{correctOption.text}</div>
+                            <div className="space-y-1">
+                              {correctOptions.map(opt => {
+                                const optIdx = q.options.findIndex(o => o.id === opt.id);
+                                const letter = optIdx !== -1 ? String.fromCharCode(65 + optIdx) : '';
+                                return (
+                                  <div key={opt.id} className="text-sm md:text-base flex items-start gap-1">
+                                    {letter && <span className="font-semibold">{letter}.</span>} <span>{opt.text}</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
                           </div>
                         </div>
                       )}
                     </div>
+
+                    {q.explanation && (
+                      <div className="mt-4 p-4 rounded-xl border border-amber-200 dark:border-amber-900/50 bg-amber-50/50 dark:bg-amber-950/20 text-amber-800 dark:text-amber-300 text-sm leading-relaxed flex gap-3">
+                        <AlertTriangle className="w-5 h-5 shrink-0 text-amber-500 mt-0.5" />
+                        <div>
+                          <div className="font-bold text-xs uppercase tracking-wider text-amber-600 dark:text-amber-400 mb-1">Giải thích</div>
+                          <div className="whitespace-pre-wrap">{q.explanation}</div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -442,9 +484,11 @@ const ResultScreen = memo(function ResultScreen() {
           const q = questions.find(question => question.id === activeTooltip.questionId);
           if (!q) return null;
           const timeMs = questionTimes[q.id] || 0;
-          const isCorrect = answers[q.id] === q.correctOptionId;
-          const userOption = q.options.find(o => o.id === answers[q.id]);
-          const correctOption = q.options.find(o => o.id === q.correctOptionId);
+          const isCorrect = isQuestionCorrect(q, answers[q.id]);
+          const userAnswers = answers[q.id] || [];
+          const userOptions = q.options.filter(o => userAnswers.includes(o.id));
+          const correctIds = q.correctOptionIds;
+          const correctOptions = q.options.filter(o => correctIds.includes(o.id));
 
           const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 800;
           const barCenterX = activeTooltip.rect.left + activeTooltip.rect.width / 2;
@@ -499,12 +543,12 @@ const ResultScreen = memo(function ResultScreen() {
                 <div className="space-y-2 text-[10px] md:text-xs border-t border-slate-800 dark:border-slate-700/50 pt-2">
                   <div className="flex gap-2">
                     <span className={cn("shrink-0 font-bold", isCorrect ? "text-green-400" : "text-red-400")}>Bạn chọn:</span>
-                    <span className="line-clamp-2">{userOption ? userOption.text : "Chưa trả lời"}</span>
+                    <span className="line-clamp-2">{renderOptionsText(q, userOptions)}</span>
                   </div>
-                  {!isCorrect && correctOption && (
+                  {!isCorrect && correctOptions.length > 0 && (
                     <div className="flex gap-2">
                       <span className="shrink-0 font-bold text-green-400">Đáp án:</span>
-                      <span className="line-clamp-2">{correctOption.text}</span>
+                      <span className="line-clamp-2">{renderOptionsText(q, correctOptions)}</span>
                     </div>
                   )}
                 </div>
