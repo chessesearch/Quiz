@@ -1,11 +1,143 @@
 "use client";
 
-import { useRef, useState, useEffect } from "react";
-import { useQuizStore } from "@/store/quizStore";
+import { useRef, useState } from "react";
+import { useQuizStore, SourceFile } from "@/store/quizStore";
 import { parseFile } from "@/lib/parser";
 import SourceAllocation from "./SourceAllocation";
-import { Plus, Trash2, FileText, FileWarning, Sun, Moon, X } from "lucide-react";
+import { Plus, Trash2, FileText, FileWarning, Sun, Moon, X, GripVertical } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Reorder, useDragControls } from "framer-motion";
+
+interface SourceCardItemProps {
+  source: SourceFile;
+  editingSourceIds: Record<string, boolean>;
+  setEditingSourceIds: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
+  updateLocalCustomName: (id: string, name: string) => void;
+  toggleLocalSource: (id: string) => void;
+  removeLocalSource: (id: string) => void;
+  dragConstraints: React.RefObject<HTMLUListElement | null>;
+}
+
+const SourceCardItem = ({
+  source,
+  editingSourceIds,
+  setEditingSourceIds,
+  updateLocalCustomName,
+  toggleLocalSource,
+  removeLocalSource,
+  dragConstraints,
+}: SourceCardItemProps) => {
+  const dragControls = useDragControls();
+
+  const toggleEditing = (id: string) => {
+    setEditingSourceIds(prev => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  return (
+    <Reorder.Item
+      value={source}
+      dragListener={false}
+      dragControls={dragControls}
+      dragConstraints={dragConstraints}
+      dragElastic={0.05}
+      whileDrag={{
+        scale: 1.01,
+        boxShadow: "0px 8px 20px -5px rgba(0, 0, 0, 0.08), 0px 6px 8px -6px rgba(0, 0, 0, 0.04)",
+      }}
+      className={cn(
+        "p-4 rounded-xl border flex items-center gap-3 transition-shadow shadow-sm hover:shadow-md group/card relative select-none",
+        source.isValid 
+          ? "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700/80" 
+          : "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-900/50"
+      )}
+    >
+      {/* Drag Handle Icon in front */}
+      <div
+        className="text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/50 rounded-lg cursor-grab active:cursor-grabbing opacity-65 hover:opacity-100 transition-all duration-150 flex items-center justify-center touch-none select-none w-8 h-8 -ml-2 shrink-0"
+        onPointerDown={(e) => dragControls.start(e)}
+        title="Kéo để sắp xếp"
+      >
+        <GripVertical className="w-5 h-5 shrink-0" />
+      </div>
+
+      <div className="flex items-center shrink-0">
+        <input
+          type="checkbox"
+          checked={source.active}
+          disabled={!source.isValid}
+          onChange={() => toggleLocalSource(source.id)}
+          className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 disabled:opacity-50"
+        />
+      </div>
+      
+      <div className="flex-1 min-w-0">
+        <div className="flex justify-between items-start gap-2 mb-1">
+          <div className="flex-1 min-w-0">
+            {editingSourceIds[source.id] ? (
+              <input
+                type="text"
+                placeholder="Đặt tên nguồn dữ liệu..."
+                value={source.customName || ""}
+                onChange={(e) => updateLocalCustomName(source.id, e.target.value)}
+                onBlur={() => {
+                  setEditingSourceIds(prev => ({ ...prev, [source.id]: false }));
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    setEditingSourceIds(prev => ({ ...prev, [source.id]: false }));
+                  }
+                }}
+                className="w-full px-2 py-1 text-sm font-bold border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500 mb-1"
+                autoFocus
+              />
+            ) : source.customName ? (
+              <h4 className="font-extrabold text-sm text-slate-900 dark:text-slate-100 leading-snug">
+                {source.customName}
+              </h4>
+            ) : null}
+
+            {/* Original file name */}
+            {(!editingSourceIds[source.id] && !source.customName) ? (
+              <h3 className="font-semibold text-sm truncate text-slate-800 dark:text-slate-200" title={source.name}>
+                {source.name}
+              </h3>
+            ) : (
+              <p className="text-[11px] text-slate-400 dark:text-slate-500 font-medium truncate" title={source.name}>
+                {source.name}
+              </p>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2.5 shrink-0">
+            <button
+              onClick={() => toggleEditing(source.id)}
+              className="text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 text-xs font-semibold select-none"
+            >
+              Đặt tên
+            </button>
+            <button
+              onClick={() => removeLocalSource(source.id)}
+              className="text-slate-400 hover:text-red-500 dark:hover:text-red-400 select-none shrink-0"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+        
+        {source.isValid ? (
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+            {source.questionsCount} câu hỏi
+          </p>
+        ) : (
+          <div className="text-xs text-red-600 dark:text-red-400 mt-1 flex items-start gap-1">
+            <FileWarning className="w-4 h-4 shrink-0" />
+            <span>{source.error}</span>
+          </div>
+        )}
+      </div>
+    </Reorder.Item>
+  );
+};
 
 export default function Sidebar() {
   const theme = useQuizStore(state => state.theme);
@@ -15,6 +147,7 @@ export default function Sidebar() {
   // Local state for settings, initialized from the store on mount using getState to avoid unnecessary component subscriptions
   const [localShowResult, setLocalShowResult] = useState(() => useQuizStore.getState().showResultAfterQuestion);
   const [localAutoNext, setLocalAutoNext] = useState(() => useQuizStore.getState().autoNext);
+  const listContainerRef = useRef<HTMLUListElement>(null);
   const [localCountMode, setLocalCountMode] = useState(() => useQuizStore.getState().questionCountMode);
   const [localCustomCount, setLocalCustomCount] = useState(() => useQuizStore.getState().customQuestionCount);
   const [localAllocations, setLocalAllocations] = useState(() => useQuizStore.getState().sourceAllocations);
@@ -22,10 +155,6 @@ export default function Sidebar() {
   const [isSaved, setIsSaved] = useState(false);
 
   const [editingSourceIds, setEditingSourceIds] = useState<Record<string, boolean>>({});
-
-  const toggleEditing = (id: string) => {
-    setEditingSourceIds(prev => ({ ...prev, [id]: !prev[id] }));
-  };
 
   const updateLocalCustomName = (id: string, name: string) => {
     setLocalSources(prev => prev.map(s => s.id === id ? { ...s, customName: name || undefined } : s));
@@ -35,13 +164,6 @@ export default function Sidebar() {
   const [isUploading, setIsUploading] = useState(false);
 
   const totalAvailable = localSources.filter(s => s.active && s.isValid).reduce((acc, curr) => acc + curr.questionsCount, 0);
-
-  // Auto-clamp custom question count if totalAvailable changes
-  useEffect(() => {
-    if (localCustomCount > totalAvailable && totalAvailable > 0) {
-      setLocalCustomCount(totalAvailable);
-    }
-  }, [totalAvailable, localCustomCount]);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -71,13 +193,21 @@ export default function Sidebar() {
   };
 
   const toggleLocalSource = (id: string) => {
-    setLocalSources(prev => 
-      prev.map(s => s.id === id ? { ...s, active: !s.active } : s)
-    );
+    const nextSources = localSources.map(s => s.id === id ? { ...s, active: !s.active } : s);
+    setLocalSources(nextSources);
+    const nextTotal = nextSources.filter(s => s.active && s.isValid).reduce((acc, curr) => acc + curr.questionsCount, 0);
+    if (localCustomCount > nextTotal && nextTotal > 0) {
+      setLocalCustomCount(nextTotal);
+    }
   };
 
   const removeLocalSource = (id: string) => {
-    setLocalSources(prev => prev.filter(s => s.id !== id));
+    const nextSources = localSources.filter(s => s.id !== id);
+    setLocalSources(nextSources);
+    const nextTotal = nextSources.filter(s => s.active && s.isValid).reduce((acc, curr) => acc + curr.questionsCount, 0);
+    if (localCustomCount > nextTotal && nextTotal > 0) {
+      setLocalCustomCount(nextTotal);
+    }
   };
 
   const handleSave = () => {
@@ -257,95 +387,26 @@ export default function Sidebar() {
             <p className="text-xs mt-1">Hỗ trợ .docx, .txt, .json</p>
           </div>
         ) : (
-          <div className="space-y-3">
+          <Reorder.Group
+            ref={listContainerRef}
+            axis="y"
+            values={localSources}
+            onReorder={setLocalSources}
+            className="space-y-3"
+          >
             {localSources.map((source) => (
-              <div
+              <SourceCardItem
                 key={source.id}
-                className={cn(
-                  "p-4 rounded-xl border flex gap-3 transition-shadow shadow-sm hover:shadow-md",
-                  source.isValid 
-                    ? "bg-white dark:bg-slate-800 border-green-100 dark:border-green-900/50" 
-                    : "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-900/50"
-                )}
-              >
-                <div className="pt-0.5">
-                  <input
-                    type="checkbox"
-                    checked={source.active}
-                    disabled={!source.isValid}
-                    onChange={() => toggleLocalSource(source.id)}
-                    className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 disabled:opacity-50"
-                  />
-                </div>
-                
-                <div className="flex-1 min-w-0">
-                  <div className="flex justify-between items-start gap-2 mb-1">
-                    <div className="flex-1 min-w-0">
-                      {editingSourceIds[source.id] ? (
-                        <input
-                          type="text"
-                          placeholder="Đặt tên nguồn dữ liệu..."
-                          value={source.customName || ""}
-                          onChange={(e) => updateLocalCustomName(source.id, e.target.value)}
-                          onBlur={() => {
-                            setEditingSourceIds(prev => ({ ...prev, [source.id]: false }));
-                          }}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") {
-                              setEditingSourceIds(prev => ({ ...prev, [source.id]: false }));
-                            }
-                          }}
-                          className="w-full px-2 py-1 text-sm font-bold border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500 mb-1"
-                          autoFocus
-                        />
-                      ) : source.customName ? (
-                        <h4 className="font-extrabold text-sm text-slate-900 dark:text-slate-100 leading-snug">
-                          {source.customName}
-                        </h4>
-                      ) : null}
-
-                      {/* Original file name */}
-                      {(!editingSourceIds[source.id] && !source.customName) ? (
-                        <h3 className="font-semibold text-sm truncate text-slate-800 dark:text-slate-200" title={source.name}>
-                          {source.name}
-                        </h3>
-                      ) : (
-                        <p className="text-[11px] text-slate-400 dark:text-slate-500 font-medium truncate" title={source.name}>
-                          {source.name}
-                        </p>
-                      )}
-                    </div>
-
-                    <div className="flex items-center gap-2.5 shrink-0">
-                      <button
-                        onClick={() => toggleEditing(source.id)}
-                        className="text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 text-xs font-semibold select-none"
-                      >
-                        Đặt tên
-                      </button>
-                      <button
-                        onClick={() => removeLocalSource(source.id)}
-                        className="text-slate-400 hover:text-red-500 dark:hover:text-red-400 select-none shrink-0"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                  
-                  {source.isValid ? (
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                      {source.questionsCount} câu hỏi
-                    </p>
-                  ) : (
-                    <div className="text-xs text-red-600 dark:text-red-400 mt-1 flex items-start gap-1">
-                      <FileWarning className="w-4 h-4 shrink-0" />
-                      <span>{source.error}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
+                source={source}
+                editingSourceIds={editingSourceIds}
+                setEditingSourceIds={setEditingSourceIds}
+                updateLocalCustomName={updateLocalCustomName}
+                toggleLocalSource={toggleLocalSource}
+                removeLocalSource={removeLocalSource}
+                dragConstraints={listContainerRef}
+              />
             ))}
-          </div>
+          </Reorder.Group>
         )}
           </div>
         </div>

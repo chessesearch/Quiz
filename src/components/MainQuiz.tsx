@@ -7,65 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Clock, Pause, Play, LogOut, CheckSquare, AlertTriangle, CheckCircle } from "lucide-react";
 import { isQuestionCorrect, Question } from "@/lib/parser";
 
-import Prism from "prismjs";
-import "prismjs/components/prism-python";
-import "prismjs/components/prism-javascript";
-import "prismjs/components/prism-typescript";
-import "prismjs/themes/prism-tomorrow.css";
-
-function detectLanguage(code: string): string {
-  const pythonKeywords = ["def ", "elif ", "import math", "print(", "len(", "range("];
-  const jsKeywords = ["const ", "let ", "var ", "function ", "console.log", "=>"];
-  
-  let pyCount = 0;
-  let jsCount = 0;
-  
-  pythonKeywords.forEach(k => {
-    if (code.includes(k)) pyCount++;
-  });
-  jsKeywords.forEach(k => {
-    if (code.includes(k)) jsCount++;
-  });
-  
-  return pyCount >= jsCount ? "python" : "javascript";
-}
-
-function highlightCode(content: string): string[] {
-  const lang = detectLanguage(content);
-  const grammar = Prism.languages[lang] || Prism.languages.javascript;
-  
-  return content.split("\n").map(line => {
-    if (!line) return "";
-    return Prism.highlight(line, grammar, lang);
-  });
-}
-
-const CodeBlock = memo(({ content }: { content: string }) => {
-  const lines = content.split('\n');
-  const highlightedLines = highlightCode(content);
-
-  return (
-    <div className="my-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/80 font-mono text-xs md:text-sm overflow-hidden transition-colors duration-300 shadow-inner flex flex-col max-h-[320px] md:max-h-[450px]">
-      <div className="flex items-center justify-between px-4 py-2 border-b border-slate-200 dark:border-slate-700/50 bg-slate-100/50 dark:bg-slate-900/50 text-[10px] md:text-xs font-sans text-slate-400 select-none shrink-0">
-        <span>Code Block</span>
-        <span className="text-[9px] uppercase tracking-wider bg-slate-200 dark:bg-slate-800 px-1.5 py-0.5 rounded font-semibold">Read Only</span>
-      </div>
-      <div className="overflow-auto p-4 flex flex-1">
-        <div className="text-right text-slate-450 select-none pr-4 border-r border-slate-200 dark:border-slate-700/50 mr-4 font-mono text-xs md:text-sm shrink-0">
-          {lines.map((_, i) => (
-            <div key={i} className="leading-relaxed h-5">{i + 1}</div>
-          ))}
-        </div>
-        <pre className="flex-1 text-slate-800 dark:text-slate-200 leading-relaxed font-mono text-xs md:text-sm overflow-visible whitespace-pre" style={{ tabSize: 4 }}>
-          {highlightedLines.map((line, i) => (
-            <div key={i} className="h-5" dangerouslySetInnerHTML={{ __html: line || ' ' }} />
-          ))}
-        </pre>
-      </div>
-    </div>
-  );
-});
-CodeBlock.displayName = "CodeBlock";
+import { DisplayBlockRenderer } from "@/components/DisplayBlockRenderer";
 
 const Timer = memo(() => {
   const startTime = useQuizStore(state => state.startTime);
@@ -104,7 +46,6 @@ type QuizPhase = 'answering' | 'feedback' | 'transitioning';
 interface QuestionCardProps {
   question: Question;
   currentIndex: number;
-  total: number;
   showResultAfterQuestion: boolean;
   autoNext: boolean;
   isPaused: boolean;
@@ -113,6 +54,7 @@ interface QuestionCardProps {
   showSubmitConfirm: boolean;
   setShowSubmitConfirm: (val: boolean) => void;
   resumeQuiz: () => void;
+  pauseQuiz: () => void;
   submitAnswer: (questionId: string, optionIds: string[]) => void;
   nextQuestion: () => void;
   onQuestionActive: (index: number) => void;
@@ -121,7 +63,6 @@ interface QuestionCardProps {
 const QuestionCard = memo(function QuestionCard({
   question: initialQuestion,
   currentIndex: initialCurrentIndex,
-  total,
   showResultAfterQuestion,
   autoNext,
   isPaused,
@@ -130,6 +71,7 @@ const QuestionCard = memo(function QuestionCard({
   showSubmitConfirm,
   setShowSubmitConfirm,
   resumeQuiz,
+  pauseQuiz,
   submitAnswer,
   nextQuestion,
   onQuestionActive
@@ -246,15 +188,15 @@ const QuestionCard = memo(function QuestionCard({
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        const activeEl = document.activeElement as HTMLElement | null;
-        const isInputActive = activeEl && (
-          activeEl.tagName === "INPUT" || 
-          activeEl.tagName === "TEXTAREA" || 
-          activeEl.isContentEditable
-        );
-        if (isInputActive) return;
+      const activeEl = document.activeElement as HTMLElement | null;
+      const isInputActive = activeEl && (
+        activeEl.tagName === "INPUT" || 
+        activeEl.tagName === "TEXTAREA" || 
+        activeEl.isContentEditable
+      );
+      if (isInputActive) return;
 
+      if (e.key === "Escape") {
         e.preventDefault();
         
         if (showExitConfirm) {
@@ -265,6 +207,28 @@ const QuestionCard = memo(function QuestionCard({
           resumeQuiz();
         } else {
           setShowExitConfirm(true);
+        }
+        return;
+      }
+
+      // Pause toggle shortcut: P key
+      if (e.key.toLowerCase() === "p") {
+        e.preventDefault();
+        if (isPaused) {
+          resumeQuiz();
+        } else {
+          if (!showExitConfirm && !showSubmitConfirm) {
+            pauseQuiz();
+          }
+        }
+        return;
+      }
+
+      // Early submit shortcut: S key
+      if (e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        if (phase === 'answering' && !isLockedRef.current && !isPaused && !showExitConfirm && !showSubmitConfirm) {
+          setShowSubmitConfirm(true);
         }
         return;
       }
@@ -296,7 +260,7 @@ const QuestionCard = memo(function QuestionCard({
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [handleEnter, phase, question, handleSelectOption, selectedOptionId, selectedOptionIds, isPaused, showExitConfirm, showSubmitConfirm, resumeQuiz, setShowExitConfirm, setShowSubmitConfirm]);
+  }, [handleEnter, phase, question, handleSelectOption, selectedOptionId, selectedOptionIds, isPaused, showExitConfirm, showSubmitConfirm, resumeQuiz, pauseQuiz, setShowExitConfirm, setShowSubmitConfirm]);
 
   return (
     <motion.div
@@ -316,8 +280,8 @@ const QuestionCard = memo(function QuestionCard({
         {question.text}
       </h2>
 
-      {question.display_block && question.display_block.type === 'code' && (
-        <CodeBlock content={question.display_block.content} />
+      {question.display_block && (
+        <DisplayBlockRenderer block={question.display_block} />
       )}
 
       <div className="space-y-3 md:space-y-4">
@@ -619,7 +583,6 @@ const MainQuiz = memo(function MainQuiz() {
               key={question.id}
               question={question}
               currentIndex={currentIndex}
-              total={total}
               showResultAfterQuestion={showResultAfterQuestion}
               autoNext={autoNext}
               isPaused={isPaused}
@@ -628,6 +591,7 @@ const MainQuiz = memo(function MainQuiz() {
               showSubmitConfirm={showSubmitConfirm}
               setShowSubmitConfirm={setShowSubmitConfirm}
               resumeQuiz={resumeQuiz}
+              pauseQuiz={pauseQuiz}
               submitAnswer={submitAnswer}
               nextQuestion={nextQuestion}
               onQuestionActive={setActiveCurrentIndex}

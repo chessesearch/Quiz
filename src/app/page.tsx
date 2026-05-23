@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useQuizStore } from "@/store/quizStore";
 import Sidebar from "@/components/Sidebar";
 import StartScreen from "@/components/StartScreen";

@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { SourceFile } from "@/store/quizStore";
+
 import { cn } from "@/lib/utils";
 
 const SOURCE_COLORS = [
@@ -26,6 +27,21 @@ export default function SourceAllocation({ sources, totalQuestions, allocations,
   const activeSources = sources.filter((s) => s.active && s.isValid);
   const barRef = useRef<HTMLDivElement>(null);
   const [draggingIdx, setDraggingIdx] = useState<number | null>(null);
+  const [barWidth, setBarWidth] = useState(0);
+
+  // Measure bar actual width in real-time to decide label visibility
+  useEffect(() => {
+    if (!barRef.current) return;
+    setBarWidth(barRef.current.getBoundingClientRect().width);
+    
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setBarWidth(entry.contentRect.width);
+      }
+    });
+    observer.observe(barRef.current);
+    return () => observer.disconnect();
+  }, []);
 
   // Initialize or rebalance allocations if invalid
   useEffect(() => {
@@ -199,7 +215,6 @@ export default function SourceAllocation({ sources, totalQuestions, allocations,
     const otherSources = activeSources.filter(s => s.id !== sourceId);
     
     if (remainingToBalance > 0) { // we need to ADD to others
-      let idx = 0;
       while (remainingToBalance > 0) {
         let added = false;
         for (const s of otherSources) {
@@ -236,16 +251,6 @@ export default function SourceAllocation({ sources, totalQuestions, allocations,
 
   if (activeSources.length === 0) return null;
 
-  // Build the blocks array for the bar
-  const blocks: { sourceId: string; color: any; sourceIdx: number; isFirst: boolean; isLast: boolean }[] = [];
-  activeSources.forEach((source, idx) => {
-    const color = SOURCE_COLORS[idx % SOURCE_COLORS.length];
-    const count = allocations[source.id] || 0;
-    for (let i = 0; i < count; i++) {
-      blocks.push({ sourceId: source.id, color, sourceIdx: idx, isFirst: i === 0, isLast: i === count - 1 });
-    }
-  });
-
   return (
     <div className="mt-6 bg-slate-100/50 dark:bg-slate-800/50 p-5 rounded-2xl border border-slate-200 dark:border-slate-700/50">
       <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100 mb-4">Tỉ lệ câu hỏi</h3>
@@ -253,32 +258,51 @@ export default function SourceAllocation({ sources, totalQuestions, allocations,
       {/* Allocation Bar */}
       <div 
         ref={barRef}
-        className="relative h-10 md:h-12 w-full flex rounded-xl overflow-x-auto overflow-y-hidden border border-slate-200 dark:border-slate-700 bg-slate-200 dark:bg-slate-800 select-none shadow-inner touch-pan-y"
+        className="relative h-10 md:h-12 w-full flex rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-200 dark:bg-slate-800 select-none shadow-inner touch-pan-y"
         style={{ cursor: draggingIdx !== null ? 'col-resize' : 'default' }}
       >
-        {blocks.map((b, i) => (
-          <div 
-            key={i} 
-            className={cn(
-              "h-full transition-colors relative group",
-              b.color.bg,
-              b.color.bgHover
-            )}
-            style={{ width: `${(1 / totalQuestions) * 100}%` }}
-          >
-            {/* Border to distinguish individual blocks */}
-            <div className="absolute inset-0 border-r border-black/10 dark:border-white/10" />
-            
-            {/* Label inside the segment */}
-            {b.isFirst && (allocations[b.sourceId] > (totalQuestions * 0.08)) && (
-              <div className="absolute inset-0 flex items-center pl-3 whitespace-nowrap z-10 pointer-events-none">
-                <span className="text-white font-bold text-xs shadow-black drop-shadow-md">
-                  {allocations[b.sourceId]}
-                </span>
-              </div>
-            )}
-          </div>
-        ))}
+        {activeSources.map((source, idx) => {
+          const color = SOURCE_COLORS[idx % SOURCE_COLORS.length];
+          const count = allocations[source.id] || 0;
+          if (count === 0) return null;
+
+          const widthPercent = (count / totalQuestions) * 100;
+          const segmentWidth = barWidth * (count / totalQuestions);
+          const labelText = String(count);
+          // Only hide the label if the segment width falls below the estimated text characters width + minor padding
+          const minSpaceNeeded = labelText.length * 8 + 12;
+          const showLabel = barWidth > 0 ? (segmentWidth >= minSpaceNeeded) : (widthPercent >= 3);
+
+          return (
+            <div 
+              key={source.id} 
+              className={cn(
+                "h-full relative flex transition-colors shrink-0",
+                color.bg,
+                color.bgHover
+              )}
+              style={{ width: `${widthPercent}%` }}
+            >
+              {/* Individual question blocks inside this segment to retain grid boundaries */}
+              {Array.from({ length: count }).map((_, i) => (
+                <div 
+                  key={i} 
+                  className="h-full border-r border-black/10 dark:border-white/10 shrink-0" 
+                  style={{ width: `${100 / count}%` }}
+                />
+              ))}
+              
+              {/* Center Label for the segment */}
+              {showLabel && (
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+                  <span className="text-white font-extrabold text-xs shadow-black drop-shadow-md select-none">
+                    {count}
+                  </span>
+                </div>
+              )}
+            </div>
+          );
+        })}
 
         {/* Dividers for dragging */}
         {activeSources.map((source, idx) => {
@@ -299,8 +323,7 @@ export default function SourceAllocation({ sources, totalQuestions, allocations,
               className="absolute top-0 bottom-0 w-8 -ml-4 cursor-col-resize flex items-center justify-center z-20 group touch-none"
               style={{ left: `${leftPercent}%` }}
               onMouseDown={() => handleDragStart(idx)}
-              onTouchStart={(e) => {
-                // e.preventDefault(); // Prevent default to avoid scroll on touch start, though passive: false might be needed
+              onTouchStart={() => {
                 handleDragStart(idx);
               }}
             >

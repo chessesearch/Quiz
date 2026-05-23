@@ -2,15 +2,16 @@
 
 import { useState, memo } from "react";
 import { useQuizStore } from "@/store/quizStore";
-import { CheckCircle2, XCircle, RotateCcw, Clock, Target, AlertTriangle, PlayCircle, X } from "lucide-react";
+import { CheckCircle2, XCircle, RotateCcw, Target, AlertTriangle, PlayCircle, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
-import { isQuestionCorrect } from "@/lib/parser";
+import { isQuestionCorrect, Question, Option } from "@/lib/parser";
+import { DisplayBlockRenderer } from "@/components/DisplayBlockRenderer";
 
-const renderOptionsText = (q: any, opts: any[]) => {
+const renderOptionsText = (q: Question, opts: Option[]) => {
   if (opts.length === 0) return "Chưa trả lời";
   return opts.map(o => {
-    const idx = q.options.findIndex((x: any) => x.id === o.id);
+    const idx = q.options.findIndex((x: Option) => x.id === o.id);
     const letter = idx !== -1 ? String.fromCharCode(65 + idx) : "";
     return letter ? `${letter}. ${o.text}` : o.text;
   }).join("; ");
@@ -191,7 +192,7 @@ const ResultScreen = memo(function ResultScreen() {
                             : "gap-1.5 md:gap-2"
                       )}
                     >
-                      {sortedQuestions.map((q, idx) => {
+                      {sortedQuestions.map((q) => {
                         const timeMs = questionTimes[q.id] || 0;
                         const heightPercent = Math.max((timeMs / maxTime) * 100, 2);
                         const isCorrect = isQuestionCorrect(q, answers[q.id]);
@@ -296,6 +297,10 @@ const ResultScreen = memo(function ResultScreen() {
                       <span className="text-slate-400 dark:text-slate-500 mr-2">#{idx + 1}</span>
                       {q.text}
                     </div>
+
+                    {q.display_block && (
+                      <DisplayBlockRenderer block={q.display_block} />
+                    )}
                     
                     <div className="space-y-3">
                       {selectedOptions.length > 0 ? (

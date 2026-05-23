@@ -83,7 +83,7 @@ function parseQuizJson(rawText: string): ParseResult {
         return { questions: [], isValid: false, error: `Câu hỏi thứ ${index + 1} thiếu hoặc rỗng danh sách 'correct_answer'.` };
       }
 
-      const options: Option[] = q.options.map((opt: any, optIdx: number) => {
+      const options: Option[] = q.options.map((opt: { id?: string | number; text?: string | number }, optIdx: number) => {
         const id = opt.id ? String(opt.id) : String.fromCharCode(65 + optIdx);
         return {
           id: id,
@@ -92,7 +92,7 @@ function parseQuizJson(rawText: string): ParseResult {
         };
       });
 
-      const correctOptionIds: string[] = q.correct_answer.map((ans: any) => String(ans));
+      const correctOptionIds: string[] = q.correct_answer.map((ans: string | number) => String(ans));
 
       const optionIds = new Set(options.map(o => o.id));
       const invalidCorrect = correctOptionIds.filter((id: string) => !optionIds.has(id));
@@ -113,9 +113,10 @@ function parseQuizJson(rawText: string): ParseResult {
     }
 
     return { questions, isValid: true };
-  } catch (err: any) {
+  } catch (err) {
+    const errorMsg = err instanceof Error ? err.message : String(err);
     console.error("Error parsing JSON quiz:", err);
-    return { questions: [], isValid: false, error: "Tệp JSON không hợp lệ: " + err.message };
+    return { questions: [], isValid: false, error: "Tệp JSON không hợp lệ: " + errorMsg };
   }
 }
 

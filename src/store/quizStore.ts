@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Question, Option } from '../lib/parser';
+import { Question } from '../lib/parser';
 
 export interface SourceFile {
   id: string;
@@ -182,8 +182,16 @@ export const useQuizStore = create<QuizStore>((set, get) => ({
   },
 
   submitAnswer: (questionId, optionIds) => {
+    const { startTime, accumulatedTime, questionStartTime, questionAccumulatedTime } = get();
+    const newAccumulated = accumulatedTime + (startTime ? Date.now() - startTime : 0);
+    const newQAccumulated = questionAccumulatedTime + (questionStartTime ? Date.now() - questionStartTime : 0);
+
     set((state) => ({
-      answers: { ...state.answers, [questionId]: optionIds }
+      answers: { ...state.answers, [questionId]: optionIds },
+      startTime: null,
+      accumulatedTime: newAccumulated,
+      questionStartTime: null,
+      questionAccumulatedTime: newQAccumulated
     }));
   },
 
@@ -199,6 +207,7 @@ export const useQuizStore = create<QuizStore>((set, get) => ({
       set({ 
         currentIndex: currentIndex + 1,
         questionTimes: newQuestionTimes,
+        startTime: Date.now(),
         questionStartTime: Date.now(),
         questionAccumulatedTime: 0
       });
@@ -302,10 +311,14 @@ export const useQuizStore = create<QuizStore>((set, get) => ({
   },
 
   resumeQuiz: () => {
+    const { questions, currentIndex, answers } = get();
+    const currentQ = questions[currentIndex];
+    const isAnswered = currentQ ? !!answers[currentQ.id] : false;
+
     set({
       isPaused: false,
-      startTime: Date.now(),
-      questionStartTime: Date.now()
+      startTime: isAnswered ? null : Date.now(),
+      questionStartTime: isAnswered ? null : Date.now()
     });
   },
 
