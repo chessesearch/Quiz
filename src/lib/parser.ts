@@ -56,7 +56,7 @@ export async function parseFile(file: File): Promise<ParseResult> {
       return { questions: [], isValid: false, error: "Định dạng file không được hỗ trợ. Vui lòng chọn file .txt, .docx hoặc .json" };
     }
 
-    return parseQuizText(text);
+    return parseQuizText(text, file.name.endsWith(".docx"));
   } catch (error) {
     console.error("Error parsing file:", error);
     return { questions: [], isValid: false, error: "Đã xảy ra lỗi khi đọc file." };
@@ -142,31 +142,95 @@ function mapBlockType(type: string): string {
   return type;
 }
 
-function convertArrowsToTabs(content: string): string {
-  return content.split('\n').map(line => {
-    const match = line.match(/^([\s\t>]*)/);
+
+export function normalizeCodeIndentation(content: string, isDocx: boolean = false): string {
+  let result = content.replace(/\r\n/g, "\n");
+  
+  if (isDocx) {
+    // Collapse Word paragraph artifacts: replace double newlines with single newline
+    // Since each paragraph in Word has a trailing \n\n, it converts to a single \n.
+    // Genuine empty lines (\n\n\n\n) convert to exactly one empty line (\n\n).
+    result = result.replace(/\n\n/g, "\n");
+  }
+  
+  if (result.startsWith("\n")) {
+    result = result.substring(1);
+  }
+  if (result.endsWith("\n")) {
+    result = result.substring(0, result.length - 1);
+  }
+  
+  return result.split("\n").map(line => {
+    const match = line.match(/^([>\s\t]*)/);
     if (match) {
       const prefix = match[1];
-      const newPrefix = prefix.replace(/>/g, '\t');
+      const newPrefix = prefix.replace(/>/g, "    ");
       return newPrefix + line.substring(prefix.length);
     }
     return line;
-  }).join('\n');
+  }).join("\n");
 }
 
-function parseQuizText(rawText: string): ParseResult {
-  const questions: Question[] = [];
-  // Split by "Câu X:"
-  const parts = rawText.split(/(Câu\s+\d+\s*:)/i);
+export function parseTaggedQuestionBlock(text: string): { text: string; type: "single_choice" | "multiple_choice" } | null {
+  const regex = /\[\?\]\s*\[\s*(single_choice|multiple_choice)\s*\]([\s\S]*?)(?:\[\/\?\]|(?=\[\+\]|\[=\]|\[\>\]|\[\?\]|\r?\n\s*Câu\s+\d+\s*:|\r?\n\s*[A-D][\.\)]|$))/gi;
+  const match = regex.exec(text);
+  if (match) {
+    return {
+      text: match[2].trim(),
+      type: match[1].toLowerCase() as "single_choice" | "multiple_choice"
+    };
+  }
+  return null;
+}
+
+export function parseTaggedDisplayBlocks(text: string, isDocx: boolean = false): DisplayBlock[] {
+  const blocks: DisplayBlock[] = [];
+  const regex = /\[\+\]\s*\[\s*([a-zA-Z0-9_]+)\s*\]([\s\S]*?)(?:\[\/\+\]|(?=\[\+\]|\[=\]|\[\>\]|\[\/\?\]|\[\?\]|\r?\n\s*Câu\s+\d+\s*:|\r?\n\s*[A-D][\.\)]|$))/gi;
+  let match;
+  while ((match = regex.exec(text)) !== null) {
+    const rawType = match[1];
+    const rawContent = match[2];
+    const type = mapBlockType(rawType);
+    const content = type === "code" ? normalizeCodeIndentation(rawContent, isDocx) : rawContent.trim();
+    blocks.push({ type, content });
+  }
+  return blocks;
+}
+
+export function parseTaggedExplanation(text: string): string | null {
+  const regex = /\[\>\]([\s\S]*?)(?:\[\/\>\]|(?=\[\+\]|\[=\]|\[\>\]|\[\/\?\]|\[\?\]|\r?\n\s*Câu\s+\d+\s*:|\r?\n\s*[A-D][\.\)]|$))/gi;
+  const match = regex.exec(text);
+  if (match) {
+    return match[1].trim();
+  }
+  return null;
+}
+
+export function parseTaggedAnswerBlocks(text: string): { text: string; isCorrect: boolean }[] {
+  const answers: { text: string; isCorrect: boolean }[] = [];
+  const regex = /\[=\]\s*\[\s*([TF])\s*\]([\s\S]*?)(?:\[\/=\]|(?=\[\+\]|\[=\]|\[\>\]|\[\/\?\]|\[\?\]|\r?\n\s*Câu\s+\d+\s*:|\r?\n\s*[A-D][\.\)]|$))/gi;
+  let match;
+  while ((match = regex.exec(text)) !== null) {
+    const isCorrect = match[1].toUpperCase() === "T";
+    const content = match[2].trim();
+    answers.push({ text: content, isCorrect });
+  }
+  return answers;
+}
+
+export function parseQuizText(rawText: string, isDocx: boolean = false): ParseResult {
+  const normalizedText = rawText.replace(/\[\\(\+|\?|\>|\=)\]/gi, (match, tag) => `[/${tag}]`);
   
-  // parts will be something like: [ "Intro text", "Câu 1:", "question body A. b B. c...", "Câu 2:", ... ]
-  // we iterate and combine the separator and the body
+  const questions: Question[] = [];
+  
+  // Split by legacy prefix "Câu X:" or new tagged question start block
+  const parts = normalizedText.split(/(Câu\s+\d+\s*:|\[\?\]\s*\[\s*(?:single_choice|multiple_choice)\s*\])/gi);
   
   if (parts.length < 3) {
-    return { questions: [], isValid: false, error: "Không tìm thấy câu hỏi nào. Đảm bảo đúng định dạng 'Câu X:'" };
+    return { questions: [], isValid: false, error: "Không tìm thấy câu hỏi nào. Đảm bảo đúng định dạng 'Câu X:' hoặc '[?][type]'" };
   }
 
-  let i = 1; // 0 is prologue
+  let i = 1;
   while (i < parts.length) {
     const câuLabel = parts[i];
     const body = parts[i + 1] || "";
@@ -175,120 +239,169 @@ function parseQuizText(rawText: string): ParseResult {
     const fullQuestionBlock = (câuLabel + body).trim();
     if (!fullQuestionBlock) continue;
 
-    let cleanedBody = body;
+    // 1. Parse tagged display blocks
+    const taggedDisplay = parseTaggedDisplayBlocks(fullQuestionBlock, isDocx);
+    let display_block: DisplayBlock | null = taggedDisplay.length > 0 ? taggedDisplay[0] : null;
 
-    // 1. Extract Block-based display block: [+][code_block] content [/+] (new syntax)
-    let display_block: DisplayBlock | null = null;
-    const newDisplayBlockRegex = /\[\+\]\s*\[\s*([a-zA-Z0-9_]+)\s*\]([\s\S]*?)\[\/\+\]/g;
+    // 2. Parse tagged explanation
+    let explanation = parseTaggedExplanation(fullQuestionBlock);
+
+    // 3. Parse tagged answers
+    const taggedAnswers = parseTaggedAnswerBlocks(fullQuestionBlock);
+
+    // 4. Parse tagged question
+    const taggedQuestion = parseTaggedQuestionBlock(fullQuestionBlock);
+
+    // Clean all tagged constructs from the block to allow parsing legacy fallbacks
+    let cleanedBlock = fullQuestionBlock;
     
-    cleanedBody = cleanedBody.replace(newDisplayBlockRegex, (match, type, content) => {
-      let cleanContent = content;
-      // Strip exactly one leading and one trailing newline if present
-      if (cleanContent.startsWith("\r\n")) {
-        cleanContent = cleanContent.substring(2);
-      } else if (cleanContent.startsWith("\n")) {
-        cleanContent = cleanContent.substring(1);
-      }
-      if (cleanContent.endsWith("\r\n")) {
-        cleanContent = cleanContent.substring(0, cleanContent.length - 2);
-      } else if (cleanContent.endsWith("\n")) {
-        cleanContent = cleanContent.substring(0, cleanContent.length - 1);
-      }
+    // Clean tagged question block
+    cleanedBlock = cleanedBlock.replace(/\[\?\]\s*\[\s*(single_choice|multiple_choice)\s*\]([\s\S]*?)(?:\[\/\?\]|(?=\[\+\]|\[=\]|\[\>\]|\[\?\]|\r?\n\s*Câu\s+\d+\s*:|\r?\n\s*[A-D][\.\)]|$))/gi, "");
+    
+    // Clean tagged display blocks (new syntax)
+    cleanedBlock = cleanedBlock.replace(/\[\+\]\s*\[\s*([a-zA-Z0-9_]+)\s*\]([\s\S]*?)(?:\[\/\+\]|(?=\[\+\]|\[=\]|\[\>\]|\[\/\?\]|\[\?\]|\r?\n\s*Câu\s+\d+\s*:|\r?\n\s*[A-D][\.\)]|$))/gi, "");
+    
+    // Clean tagged explanation blocks (new syntax)
+    cleanedBlock = cleanedBlock.replace(/\[\>\]([\s\S]*?)(?:\[\/\>\]|(?=\[\+\]|\[=\]|\[\>\]|\[\/\?\]|\[\?\]|\r?\n\s*Câu\s+\d+\s*:|\r?\n\s*[A-D][\.\)]|$))/gi, "");
+    
+    // Clean tagged answer blocks
+    cleanedBlock = cleanedBlock.replace(/\[=\]\s*\[\s*([TF])\s*\]([\s\S]*?)(?:\[\/=\]|(?=\[\+\]|\[=\]|\[\>\]|\[\/\?\]|\[\?\]|\r?\n\s*Câu\s+\d+\s*:|\r?\n\s*[A-D][\.\)]|$))/gi, "");
 
-      display_block = {
-        type: mapBlockType(type),
-        content: convertArrowsToTabs(cleanContent)
-      };
-      return ""; // remove display block tag from body
-    });
-
-    // 2. Extract Old display block syntax (backward compatibility)
+    // 5. Fallback for legacy display block
     if (!display_block) {
       const displayBlockRegex = /\[\+\]\s*:\s*\(\s*type\s*=\s*([a-zA-Z_0-9]+)\s*\)\s*\.\s*\(\s*"([^"\\]*(?:\\.[^"\\]*)*)"\s*\)/g;
-      cleanedBody = cleanedBody.replace(displayBlockRegex, (match, type, content) => {
+      cleanedBlock = cleanedBlock.replace(displayBlockRegex, (match, type, content) => {
+        const mappedType = mapBlockType(type);
+        const unescaped = unescapeString(content);
         display_block = {
-          type: mapBlockType(type),
-          content: convertArrowsToTabs(unescapeString(content))
+          type: mappedType,
+          content: mappedType === "code" ? normalizeCodeIndentation(unescaped, isDocx) : unescaped
         };
-        return ""; // remove display block tag from body
+        return "";
       });
+    } else {
+      const displayBlockRegex = /\[\+\]\s*:\s*\(\s*type\s*=\s*([a-zA-Z_0-9]+)\s*\)\s*\.\s*\(\s*"([^"\\]*(?:\\.[^"\\]*)*)"\s*\)/g;
+      cleanedBlock = cleanedBlock.replace(displayBlockRegex, "");
     }
 
-    // Extract Explanation: [>]: "content"
-    let explanation: string | null = null;
-    const explanationRegex = /\[\>\]\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"/g;
-    cleanedBody = cleanedBody.replace(explanationRegex, (match, content) => {
-      explanation = unescapeString(content);
-      return ""; // remove explanation tag from body
-    });
-
-    // Split body into lines to extract options.
-    // Options usually start with A., B., C., D. (case-insensitive)
-    // We can use a regex to find options
-    const optionMatches = Array.from(cleanedBody.matchAll(/^([A-D])[\.\)]\s*(.*?)$/gim));
-    
-    if (optionMatches.length === 0) {
-      // maybe they are not on new lines, fallback: search for A., B. anywhere but this is risky
-      // sticking to standard multiple line format
-      continue;
+    // 6. Fallback for legacy explanation
+    if (!explanation) {
+      const explanationRegex = /\[\>\]\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"/g;
+      cleanedBlock = cleanedBlock.replace(explanationRegex, (match, content) => {
+        explanation = unescapeString(content);
+        return "";
+      });
+    } else {
+      const explanationRegex = /\[\>\]\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"/g;
+      cleanedBlock = cleanedBlock.replace(explanationRegex, "");
     }
 
-    // Question text is everything before the first option
-    const firstOptionIndex = cleanedBody.indexOf(optionMatches[0][0]);
-    const questionText = cleanedBody.substring(0, firstOptionIndex).trim();
-
-    const options: Option[] = [];
+    // Parse options and question text
+    let options: Option[] = [];
     const correctOptionIds: string[] = [];
+    let questionText = "";
+    let questionType: "single_choice" | "multiple_choice" = "single_choice";
 
-    for (const match of optionMatches) {
-      const optionLetter = match[1].toUpperCase(); // A, B, C, D
-      let optionText = match[2].trim();
-      let isCorrect = false;
+    if (taggedAnswers.length > 0) {
+      options = taggedAnswers.map((ans, idx) => {
+        const optionLetter = String.fromCharCode(65 + idx);
+        const optId = Math.random().toString(36).substring(2, 9);
+        if (ans.isCorrect) {
+          correctOptionIds.push(optId);
+        }
+        return {
+          id: optId,
+          text: ans.text,
+          originalText: `${optionLetter}. ${ans.text}`
+        };
+      });
 
-      // Check if it has a trailing slash for correct answer
-      if (optionText.endsWith("/")) {
-         isCorrect = true;
-         optionText = optionText.substring(0, optionText.length - 1).trim();
-      } else if (optionText.endsWith(" /")) {
-         isCorrect = true;
-         optionText = optionText.substring(0, optionText.length - 2).trim();
+      if (taggedQuestion) {
+        questionText = taggedQuestion.text;
+        questionType = taggedQuestion.type;
+      } else {
+        let cleanText = cleanedBlock.trim();
+        const câuPrefixMatch = cleanText.match(/^Câu\s+\d+\s*:\s*([\s\S]*)/i);
+        if (câuPrefixMatch) {
+          cleanText = câuPrefixMatch[1].trim();
+        }
+        questionText = cleanText;
+        questionType = correctOptionIds.length > 1 ? "multiple_choice" : "single_choice";
+      }
+    } else {
+      const optionMatches = Array.from(cleanedBlock.matchAll(/^([A-D])[\.\)]\s*(.*?)$/gim));
+      
+      if (optionMatches.length === 0) {
+        continue;
       }
 
-      const optId = Math.random().toString(36).substring(2, 9);
-      options.push({
-        id: optId,
-        text: optionText,
-        originalText: `${optionLetter}. ${optionText}`
-      });
+      const firstOptionIndex = cleanedBlock.indexOf(optionMatches[0][0]);
+      let rawQuestionText = cleanedBlock.substring(0, firstOptionIndex).trim();
+      const câuPrefixMatch = rawQuestionText.match(/^Câu\s+\d+\s*:\s*([\s\S]*)/i);
+      if (câuPrefixMatch) {
+        rawQuestionText = câuPrefixMatch[1].trim();
+      }
 
-      if (isCorrect) {
-        correctOptionIds.push(optId);
+      if (taggedQuestion) {
+        questionText = taggedQuestion.text;
+        questionType = taggedQuestion.type;
+      } else {
+        questionText = rawQuestionText;
+      }
+
+      for (const match of optionMatches) {
+        const optionLetter = match[1].toUpperCase();
+        let optionText = match[2].trim();
+        let isCorrect = false;
+
+        if (optionText.endsWith("/")) {
+          isCorrect = true;
+          optionText = optionText.substring(0, optionText.length - 1).trim();
+        } else if (optionText.endsWith(" /")) {
+          isCorrect = true;
+          optionText = optionText.substring(0, optionText.length - 2).trim();
+        }
+
+        const optId = Math.random().toString(36).substring(2, 9);
+        options.push({
+          id: optId,
+          text: optionText,
+          originalText: `${optionLetter}. ${optionText}`
+        });
+
+        if (isCorrect) {
+          correctOptionIds.push(optId);
+        }
+      }
+
+      if (taggedQuestion) {
+        questionType = taggedQuestion.type;
+      } else {
+        questionType = correctOptionIds.length > 1 ? "multiple_choice" : "single_choice";
       }
     }
 
     if (options.length > 0) {
-       questions.push({
-         id: Math.random().toString(36).substring(2, 9),
-         originalQuestion: fullQuestionBlock,
-         text: questionText,
-         options,
-         correctOptionIds,
-         type: correctOptionIds.length > 1 ? "multiple_choice" : "single_choice",
-         display_block,
-         explanation
-       });
+      questions.push({
+        id: Math.random().toString(36).substring(2, 9),
+        originalQuestion: fullQuestionBlock,
+        text: questionText,
+        options,
+        correctOptionIds,
+        type: questionType,
+        display_block,
+        explanation
+      });
     }
   }
 
   if (questions.length === 0) {
-     return { questions: [], isValid: false, error: "Không tìm thấy lựa chọn A, B, C, D nào." };
+    return { questions: [], isValid: false, error: "Không tìm thấy câu hỏi hoặc lựa chọn nào hợp lệ." };
   }
 
-  // Validate if some questions are missing correct option
   const invalidQuestions = questions.filter(q => q.correctOptionIds.length === 0);
   if (invalidQuestions.length > 0) {
-      // Actually we will allow it but mark as invalid file if ANY question is missing a correct answer
-      return { questions, isValid: false, error: `Có ${invalidQuestions.length} câu thiếu đáp án đúng (dấu /)` };
+    return { questions, isValid: false, error: `Có ${invalidQuestions.length} câu thiếu đáp án đúng (dấu / hoặc [T])` };
   }
 
   return { questions, isValid: true };

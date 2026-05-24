@@ -24,7 +24,7 @@ interface Props {
 }
 
 export default function SourceAllocation({ sources, totalQuestions, allocations, onChange }: Props) {
-  const activeSources = sources.filter((s) => s.active && s.isValid);
+  const activeSources = React.useMemo(() => sources.filter((s) => s.active && s.isValid), [sources]);
   const barRef = useRef<HTMLDivElement>(null);
   const [draggingIdx, setDraggingIdx] = useState<number | null>(null);
   const [barWidth, setBarWidth] = useState(0);
@@ -74,14 +74,16 @@ export default function SourceAllocation({ sources, totalQuestions, allocations,
 
     sum = Object.values(currentAlloc).reduce((a, b) => a + b, 0);
 
-    if (sum !== totalQuestions || needsUpdate) {
+    const totalAvailable = activeSources.reduce((acc, s) => acc + s.questionsCount, 0);
+    const targetQuestions = Math.min(totalQuestions, totalAvailable);
+
+    if (sum !== targetQuestions || needsUpdate) {
       // Rebalance proportionally
-      let remaining = totalQuestions;
+      let remaining = targetQuestions;
       const newAlloc: Record<string, number> = {};
       
       // Initial proportional pass
-      const totalAvailable = activeSources.reduce((acc, s) => acc + s.questionsCount, 0);
-      if (totalAvailable <= totalQuestions) {
+      if (totalAvailable <= targetQuestions) {
         // If total requested >= total available, just max out everyone
         activeSources.forEach(s => {
           newAlloc[s.id] = s.questionsCount;
@@ -90,7 +92,7 @@ export default function SourceAllocation({ sources, totalQuestions, allocations,
         // Distribute based on proportion of max available
         activeSources.forEach((s) => {
           const proportion = s.questionsCount / totalAvailable;
-          const assigned = Math.min(Math.floor(proportion * totalQuestions), s.questionsCount);
+          const assigned = Math.min(Math.floor(proportion * targetQuestions), s.questionsCount);
           newAlloc[s.id] = assigned;
           remaining -= assigned;
         });
